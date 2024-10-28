@@ -1,2 +1,2 @@
-# lvs
-Local Video Service
+# lvs2
+Local Video Service V2
