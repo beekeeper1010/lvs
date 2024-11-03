@@ -96,16 +96,23 @@ func initializeTable() error {
 }
 
 func Initialize(g *gin.Engine) {
-	seq := []func() error{initializeLog, initializeConfig}
-	if global.Cfg.DbType == "mysql" {
-		seq = append(seq, initializeMysqlDb, initializeTable)
-	} else {
-		seq = append(seq, initializeSqliteDb, initializeTable)
+	if err := initializeLog(); err != nil {
+		log.Fatal(err)
 	}
-	for _, f := range seq {
-		if err := f(); err != nil {
+	if err := initializeConfig(); err != nil {
+		log.Fatal(err)
+	}
+	if global.Cfg.DbType == "mysql" {
+		if err := initializeMysqlDb(); err != nil {
 			log.Fatal(err)
 		}
+	} else {
+		if err := initializeSqliteDb(); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if err := initializeTable(); err != nil {
+		log.Fatal(err)
 	}
 	initializeRouter(g)
 }
