@@ -1,0 +1,19 @@
+{
+    "port": 8080,
+    "gops": {
+        "enable": false,
+        "port": 9999
+    },
+    "dbType":"sqlite",
+    "mysql": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "username": "your username",
+        "password": "your password",
+        "db": "lvs2",
+        "extra": "?charset=utf8mb4&parseTime=True&loc=Local"
+    },
+    "sqlite":{
+        "db":"lvs2.db"
+    }
+}
