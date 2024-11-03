@@ -16,6 +16,13 @@ type Gops struct {
 	Port   int  `json:"port"`
 }
 
+type DbType string
+
+const (
+	DB_MYSQL  DbType = "mysql"
+	DB_SQLITE DbType = "sqlite"
+)
+
 type Mysql struct {
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
@@ -36,7 +43,7 @@ type Sqlite struct {
 type Config struct {
 	Port   int    `json:"port"`
 	Gops   Gops   `json:"gops"`
-	DbType string `json:"dbType"`
+	DbType DbType `json:"dbType"`
 	Mysql  Mysql  `json:"mysql"`
 	Sqlite Sqlite `json:"sqlite"`
 }

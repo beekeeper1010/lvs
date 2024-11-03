@@ -102,7 +102,7 @@ func Initialize(g *gin.Engine) {
 	if err := initializeConfig(); err != nil {
 		log.Fatal(err)
 	}
-	if global.Cfg.DbType == "mysql" {
+	if global.Cfg.DbType == global.DB_MYSQL {
 		if err := initializeMysqlDb(); err != nil {
 			log.Fatal(err)
 		}
