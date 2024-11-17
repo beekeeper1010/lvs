@@ -41,11 +41,12 @@ type Sqlite struct {
 }
 
 type Config struct {
-	Port   int    `json:"port"`
-	Gops   Gops   `json:"gops"`
-	DbType DbType `json:"dbType"`
-	Mysql  Mysql  `json:"mysql"`
-	Sqlite Sqlite `json:"sqlite"`
+	Port   int      `json:"port"`
+	Gops   Gops     `json:"gops"`
+	DbType DbType   `json:"dbType"`
+	Mysql  Mysql    `json:"mysql"`
+	Sqlite Sqlite   `json:"sqlite"`
+	Dirs   []string `json:"dirs"`
 }
 
 var (

@@ -1,15 +1,19 @@
 package initialize
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/beekeeper1010/lvs2/api"
 	"github.com/beekeeper1010/lvs2/global"
-	"github.com/beekeeper1010/lvs2/model/example"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -17,6 +21,11 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+)
+
+var (
+	//go:embed dist/*
+	distFs embed.FS
 )
 
 func initializeLog() error {
@@ -90,9 +99,42 @@ func initializeSqliteDb() error {
 
 func initializeTable() error {
 	log.Println("initializeTable...")
-	return global.Db.AutoMigrate(
-		example.Example{},
-	)
+	return global.Db.AutoMigrate()
+}
+
+func handleNoRoute(g *gin.Engine) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		staticFs, _ := fs.Sub(distFs, "dist")
+		path := c.Request.URL.Path
+		if path != "/" {
+			f, err := staticFs.Open(path[1:])
+			if err != nil {
+				c.Request.URL.Path = "/"
+				g.HandleContext(c)
+				return
+			}
+			defer f.Close()
+			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
+				if strings.HasSuffix(path, "css") || strings.HasSuffix(path, "js") {
+					magic := make([]byte, 2)
+					f.Read(magic)
+					if magic[0] == 0x1f && magic[1] == 0x8b {
+						c.Header("Content-Encoding", "gzip")
+					}
+				}
+			}
+		}
+		http.FileServer(http.FS(staticFs)).ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func initializeRouter(g *gin.Engine) {
+	log.Println("initializeRouter...")
+	g.GET("/api/video", api.GetVideo)
+	// g.NoRoute(handleNoRoute(g))
+	for _, route := range g.Routes() {
+		log.Printf("[%-6s] %s", route.Method, route.Path)
+	}
 }
 
 func Initialize(g *gin.Engine) {
@@ -112,6 +154,9 @@ func Initialize(g *gin.Engine) {
 		}
 	}
 	if err := initializeTable(); err != nil {
+		log.Fatal(err)
+	}
+	if err := api.GetMp4Files(global.Cfg.Dirs...); err != nil {
 		log.Fatal(err)
 	}
 	initializeRouter(g)
