@@ -1,7 +1,7 @@
 BUILD     := build/
-BIN       := server.exe
+BIN       := lvs2.exe
 TARGET    := $(BUILD)$(BIN)
-RESOURCES := $(wildcard *.json)
+RESOURCES := $(wildcard *.db)
 
 $(shell mkdir -p $(BUILD))
 
