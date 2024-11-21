@@ -1,12 +1,33 @@
 <html>
-  <head></head>
+  <head>
+    <title>demo</title>
+  </head>
   <body>
     <video
+      id="player"
       src="http://localhost:8080/api/mp4?id=1"
       height="80%"
       autoplay
       controls
       muted
     ></video>
+    <div style="margin-top: 5px">
+      <button id="prev">Prev</button>
+      <button id="next">Next</button>
+    </div>
+    <script>
+      const player = document.getElementById('player')
+      const prev = document.getElementById('prev')
+      const next = document.getElementById('next')
+      prev.onclick = () => {
+        player.src = player.src.replace(
+          /\d+$/,
+          (n) => Math.max(Number(n), 2) - 1
+        )
+      }
+      next.onclick = () => {
+        player.src = player.src.replace(/\d+$/, (n) => Number(n) + 1)
+      }
+    </script>
   </body>
 </html>
