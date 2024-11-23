@@ -40,6 +40,10 @@ func doGetMp4(c *gin.Context) {
 	}
 }
 
+func doGetMp4Total(c *gin.Context) {
+	responseData(c, len(Mp4FilesCache))
+}
+
 func doNoRoute(c *gin.Context) {
 	responseOk(c)
 }

@@ -23,8 +23,14 @@
       justify-content: center;
     }
     #prev,
-    #next {
+    #next,
+    #curr,
+    #total {
       margin: 0 2px;
+      font-weight: 600;
+    }
+    #curr {
+      width: 64px;
     }
   </style>
   <body>
@@ -39,20 +45,50 @@
       <div class="control">
         <button id="prev">Prev</button>
         <button id="next">Next</button>
+        <input id="curr" type="number" /> /
+        <span id="total">NaN</span>
       </div>
     </div>
     <script>
-      const player = document.getElementById('player')
-      const prev = document.getElementById('prev')
-      const next = document.getElementById('next')
-      prev.onclick = () => {
-        player.src = player.src.replace(
-          /\d+$/,
-          (n) => Math.max(Number(n), 2) - 1
-        )
+      var id = 1,
+        total = 0,
+        baseUrl = 'http://localhost:8080'
+      const playerEl = document.getElementById('player')
+      const prevEl = document.getElementById('prev')
+      const nextEl = document.getElementById('next')
+      const currEl = document.getElementById('curr')
+      const totalEl = document.getElementById('total')
+      prevEl.onclick = () => {
+        if (id > 1) {
+          id--
+          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+          currEl.value = id
+        }
       }
-      next.onclick = () => {
-        player.src = player.src.replace(/\d+$/, (n) => Number(n) + 1)
+      nextEl.onclick = () => {
+        if (id < total) {
+          id++
+          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+          currEl.value = id
+        }
+      }
+      currEl.onchange = () => {
+        const value = parseInt(currEl.value)
+        if (value >= 1 && value <= total && value !== id) {
+          id = value
+          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+        } else {
+          currEl.value = id
+        }
+      }
+      window.onload = () => {
+        fetch(`${baseUrl}/api/mp4/total`).then((res) => {
+          res.json().then((data) => {
+            total = data.data
+            currEl.value = id
+            totalEl.innerText = total
+          })
+        })
       }
     </script>
   </body>

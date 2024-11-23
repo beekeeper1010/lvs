@@ -62,6 +62,7 @@ func initializeRouter(g *gin.Engine) {
 	{
 		api.POST("/logout", doLogout)
 		api.GET("/mp4", doGetMp4)
+		api.GET("/mp4/total", doGetMp4Total)
 	}
 	g.NoRoute(doNoRoute)
 	for _, route := range g.Routes() {
