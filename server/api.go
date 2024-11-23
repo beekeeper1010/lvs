@@ -45,24 +45,15 @@ func doNoRoute(c *gin.Context) {
 }
 
 func sendFile(c *gin.Context, mp4File Mp4File) {
+	var (
+		err        error
+		start, end int64
+	)
 	_range := c.Request.Header.Get("Range")
 	if _range == "" {
 		http.ServeFile(c.Writer, c.Request, mp4File.Path)
 		return
 	}
-	file, err := os.Open(mp4File.Path)
-	if err != nil {
-		responseError(c, err)
-		return
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
-	if err != nil {
-		responseError(c, err)
-		return
-	}
-	fileSize := fileInfo.Size()
-	var start, end int64
 	matches := regRange.FindStringSubmatch(_range)
 	if matches[1] != "" {
 		start, err = strconv.ParseInt(matches[1], 10, 64)
@@ -80,17 +71,23 @@ func sendFile(c *gin.Context, mp4File Mp4File) {
 	} else {
 		end = start + 2<<20
 	}
-	if end >= fileSize {
-		end = fileSize - 1
+	if end >= mp4File.Size {
+		end = mp4File.Size - 1
 	}
 	contentLen := end - start + 1
+	file, err := os.Open(mp4File.Path)
+	if err != nil {
+		responseError(c, err)
+		return
+	}
+	defer file.Close()
 	if _, err := file.Seek(start, io.SeekStart); err != nil {
 		responseError(c, err)
 		return
 	}
 	c.Status(http.StatusPartialContent)
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+	c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, mp4File.Size))
 	c.Header("Content-Length", strconv.FormatInt(contentLen, 10))
 	c.Header("Content-Type", "video/mp4")
 	io.CopyN(c.Writer, file, contentLen)

@@ -54,6 +54,11 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 			if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".mp4" {
 				return nil
 			}
+			fileInfo, err := os.Stat(path)
+			if err != nil {
+				fmt.Println(err)
+				return filepath.SkipDir
+			}
 			duration, err := getDuration(path)
 			if err != nil {
 				fmt.Println(err)
@@ -71,6 +76,7 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 			mp4Files = append(mp4Files, &server.Mp4File{
 				Name:      entry.Name(),
 				Path:      path,
+				Size:      fileInfo.Size(),
 				Duration:  duration,
 				Thumbnail: thumbnail,
 			})
