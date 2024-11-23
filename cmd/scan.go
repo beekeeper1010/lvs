@@ -108,7 +108,7 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 	}
 	result := db.Create(mp4Files)
 	if result.Error == nil {
-		fmt.Println("inserted", result.RowsAffected, "record(s)")
+		fmt.Println("inserted", result.RowsAffected, "record(s) to", dbfile)
 	}
 	return result.Error
 }
