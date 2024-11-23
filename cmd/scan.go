@@ -23,6 +23,10 @@ var scanCmd = &cobra.Command{
 	Short: "Scan mp4 files to generate sqlite db file",
 	Long:  "Scan mp4 files to generate sqlite db file",
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := exec.Command("ffmpeg", "-version").Run(); err != nil {
+			fmt.Println("ffmpeg not found, please install")
+			return
+		}
 		dirs, _ := cmd.Flags().GetStringArray("dir")
 		filter, _ := cmd.Flags().GetInt("filter")
 		height, _ := cmd.Flags().GetInt("height")

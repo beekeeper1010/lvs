@@ -1,98 +1,83 @@
 # lvs2
 
-Local Video Service V2
+`lvs2`是`Local Video Service`的`v2`版本，用于本地`mp4`文件的托管
 
-## gops
+## 特性
 
-### 安装
+1. 扫描用户指定目录下的`mp4`文件，生成`sqlite3`数据库档案(文件名、路径、大小、播放时长、缩略图)
+2. 基于`gin`提供播放服务，通过解析请求头中的`Range`属性实现分段下载播放
 
-```sh
-go get github.com/google/gops
-# or
-go install github.com/google/gops
+## 构建
+
+```bash
+git clone https://github.com/beekeeper1010/lvs2.git
+cd lvs2
+go build -ldflags="-s -w"
 ```
 
-### 使能
+## 使用
 
-```go
-opts := agent.Options{
-   Addr:                   fmt.Sprintf(":%d", 9999),
-   ShutdownCleanup:        true,
-   ReuseSocketAddrAndPort: true,
-  }
-if err := agent.Listen(opts); err != nil {
-log.Fatal(err)
-}
-```
++ 扫描mp4文件
 
-### 使用
+  ```bash
+  # 扫描目录1和目录2中的mp4文件，过滤掉小于60秒的视频，指定缩略图高度为100px，生成lvs2.db数据库档案
+  lvs2 scan --dir=目录1 --dir=目录2 --filter=60 --height=100 --db=lvs2.db
+  ```
 
-```sh
-# 帮助
-gops --help
++ 运行服务
 
-# 查看所有go程序，有*标记的表示启用了调试
-gops
-# 12264 6220 main.exe * go1.19.2 D:\Download\tmp\go-build1334402605\b001\exe\main.exe
-# 14404 5756 gops.exe   go1.19.2 C:\Users\2020\go\bin\gops.exe
-# 6220  980  go.exe     go1.19.2 D:\Program Files\Go\bin\go.exe
-# 10908 5568 gopls.exe  go1.19.2 C:\Users\2020\go\bin\gopls.exe
+  ```bash
+  # 基于lvs2.db数据库档案启动视频服务，监听8080端口，并将日志输出到lvs2.log文件中
+  lvs2 run --addr=:8080 --db=lvs2.db --log=lvs2.log
+  ```
 
-# 打印进程信息
-gops 12264
++ 自动补全
 
-# 内存分配和垃圾回收统计
-gops memstats 12264
-gops memstats 127.0.0.1:9999
+  ```powershell
+  # 以powershell为例，使用lvs2命令自动补全
+  lvs2 completion powershell | Out-String | Invoke-Expression
+  ```
 
-# 运行时统计
-gops stats 12264
-gops stats 127.0.0.1:9999
++ 通过`lvs2 -h`和`lvs2 help command`来查看完整的帮助信息
 
-# 打印调用栈
-gops stack 12264
-gops stack 127.0.0.1:9999
+  ```text
+  lvs2 is a Local Video Service
 
-# 打印父子进程数
-gops tree 12264
-gops tree 127.0.0.1:9999
-```
+  Usage:
+  lvs2 [command]
 
-## MySQL
+  Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+  run         Run server
+  scan        Scan mp4 files to generate sqlite db file
 
-```sql
-CREATE DATABASE ginbox CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';
-```
+  Flags:
+  -h, --help      help for lvs2
+  -v, --version   version for lvs2
 
-## 其他组件
+  Use "lvs2 [command] --help" for more information about a command.
+  ```
 
-+ 命令行用cobra
-+ 配置文件用yaml(可以写注释，JSON不行)
-+ 解析用viper
-+ 结构化日志用lumberjack
-+ 为应用程序安装windows服务用nssm(管理员模式) <http://nssm.cc/commands>
-+ 二进制瘦身工具用upx
+## 组件依赖
 
-## 防火墙
-
-```sh
-firewall-cmd --add-port=50000-50100/udp --permanent
-firewall-cmd --reload
-firewall-cmd --list-all
-```
+| 组件 | 必选 | 说明 |
+| --- | --- | --- |
+| [ffmpeg](https://github.com/BtbN/FFmpeg-Builds/releases) | Y | 用于获取播放时长、生成缩略图，测试版本`4.4.x` |
+| [nssm](https://nssm.cc/download) | N | 用于安装Windows服务，测试版本`2.24` |
+| [upx](https://github.com/upx/upx/releases/) | N | 用于二进制瘦身，测试版本`4.2.2` |
 
 ## TODO
 
-1. jwt
-2. gorm √
-3. websocket
-4. redis
-5. 自动化模块创建
-6. 通过请求头中的timestamp和sign属性做简单鉴权 √
+### 后端
 
-+ [ ] 登陆
-+ [x] 命令行生成缩略图
-+ [x] 命令行扫描mp4文件，写入数据库，不在配置文件中配置目录，避免频繁扫描
-+ [ ] 前端按卡片展示，并显示缩略图
-+ [ ] 前端点击缩略图弹框开始播放视频
-+ [ ] 优化代码减少io
++ [ ] 鉴权
++ [ ] IO性能优化
++ [ ] 弹幕
++ [ ] 其他
+
+### 前端
+
++ [ ] 用户管理
++ [ ] 播放页面，卡片中展示缩略图、文件名等
++ [ ] 搜索
