@@ -8,10 +8,12 @@ import (
 )
 
 func Run(addr, dbfile, logfile string) {
+	initialize(dbfile, logfile)
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.Default()
+	g.LoadHTMLFiles("index.html")
 	g.Use(cors.Default())
-	initialize(g, dbfile, logfile)
+	initializeRouter(g)
 	log.Println("server running on", addr)
 	log.Fatal(g.Run(addr))
 }

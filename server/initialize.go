@@ -57,12 +57,13 @@ func initializeCache() error {
 
 func initializeRouter(g *gin.Engine) {
 	log.Println("initializeRouter...")
-	g.POST("/login", doLogin)
 	api := g.Group("/api")
 	{
+		api.POST("/login", doLogin)
 		api.POST("/logout", doLogout)
-		api.GET("/mp4", doGetMp4)
+		api.GET("/mp4/list", doGetMp4List)
 		api.GET("/mp4/total", doGetMp4Total)
+		api.GET("/mp4/:id", doGetMp4File)
 	}
 	g.NoRoute(doNoRoute)
 	for _, route := range g.Routes() {
@@ -70,7 +71,7 @@ func initializeRouter(g *gin.Engine) {
 	}
 }
 
-func initialize(g *gin.Engine, dbfile, logfile string) {
+func initialize(dbfile, logfile string) {
 	initializeLog(logfile)
 	if err := initializeDb(dbfile); err != nil {
 		log.Fatal(err)
@@ -81,5 +82,4 @@ func initialize(g *gin.Engine, dbfile, logfile string) {
 	if err := initializeCache(); err != nil {
 		log.Fatal(err)
 	}
-	initializeRouter(g)
 }

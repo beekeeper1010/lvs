@@ -35,13 +35,10 @@
   </style>
   <body>
     <div class="container">
-      <video
-        id="player"
-        src="http://localhost:8080/api/mp4?id=1"
-        autoplay
-        controls
-        muted
-      ></video>
+      <video id="player" autoplay controls muted>
+        <source src="/api/mp4/1" />
+        您的浏览器不支持播放，请更换浏览器试试
+      </video>
       <div class="control">
         <button id="prev">Prev</button>
         <button id="next">Next</button>
@@ -51,8 +48,7 @@
     </div>
     <script>
       var id = 1,
-        total = 0,
-        baseUrl = 'http://localhost:8080'
+        total = 0
       const playerEl = document.getElementById('player')
       const prevEl = document.getElementById('prev')
       const nextEl = document.getElementById('next')
@@ -61,14 +57,14 @@
       prevEl.onclick = () => {
         if (id > 1) {
           id--
-          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+          playerEl.src = `/api/mp4/${id}`
           currEl.value = id
         }
       }
       nextEl.onclick = () => {
         if (id < total) {
           id++
-          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+          playerEl.src = `/api/mp4/${id}`
           currEl.value = id
         }
       }
@@ -76,13 +72,13 @@
         const value = parseInt(currEl.value)
         if (value >= 1 && value <= total && value !== id) {
           id = value
-          playerEl.src = `${baseUrl}/api/mp4?id=${id}`
+          playerEl.src = `/api/mp4/${id}`
         } else {
           currEl.value = id
         }
       }
       window.onload = () => {
-        fetch(`${baseUrl}/api/mp4/total`).then((res) => {
+        fetch('/api/mp4/total').then((res) => {
           res.json().then((data) => {
             total = data.data
             currEl.value = id

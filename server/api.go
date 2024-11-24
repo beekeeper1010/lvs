@@ -22,22 +22,21 @@ func doLogout(c *gin.Context) {
 	responseOk(c)
 }
 
-func doGetMp4(c *gin.Context) {
-	id := c.Query("id")
-	if id == "" {
-		responseData(c, Mp4FilesCache)
-	} else {
-		id, err := strconv.Atoi(id)
-		if err != nil {
-			responseError(c, err)
-			return
-		}
-		if id < 1 || id > len(Mp4FilesCache) {
-			responseError(c, errors.New("id out of range"))
-			return
-		}
-		sendFile(c, Mp4FilesCache[id-1])
+func doGetMp4List(c *gin.Context) {
+	responseData(c, Mp4FilesCache)
+}
+
+func doGetMp4File(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		responseError(c, err)
+		return
 	}
+	if id < 1 || id > len(Mp4FilesCache) {
+		responseError(c, errors.New("id out of range"))
+		return
+	}
+	sendFile(c, Mp4FilesCache[id-1])
 }
 
 func doGetMp4Total(c *gin.Context) {
@@ -45,7 +44,7 @@ func doGetMp4Total(c *gin.Context) {
 }
 
 func doNoRoute(c *gin.Context) {
-	responseOk(c)
+	responseHTML(c, "index.html", nil)
 }
 
 func sendFile(c *gin.Context, mp4File Mp4File) {

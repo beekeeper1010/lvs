@@ -20,6 +20,10 @@ func responseData(c *gin.Context, data any) {
 	})
 }
 
+func responseHTML(c *gin.Context, template string, data any) {
+	c.HTML(200, template, data)
+}
+
 func responseError(c *gin.Context, err error) {
 	c.JSON(500, gin.H{
 		"code":    500,
