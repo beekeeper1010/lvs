@@ -28,11 +28,9 @@ func initializeLog(logfile string) {
 		Compress:   true,
 	}, os.Stdout)
 	log.SetOutput(w)
-	log.Println("initializeLog...")
 }
 
-func initializeDb(dbfile string) error {
-	log.Println("initializeDb...")
+func InitializeDb(dbfile string) error {
 	db, err := gorm.Open(sqlite.Open(dbfile), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		NamingStrategy: schema.NamingStrategy{
@@ -41,18 +39,40 @@ func initializeDb(dbfile string) error {
 		},
 		Logger: logger.Default.LogMode(logger.Error),
 	})
+	if err != nil {
+		return err
+	}
 	DB = db
 	return err
 }
 
-func initializeTable() error {
-	log.Println("initializeTable...")
-	return DB.AutoMigrate(&Mp4File{})
+func InitializeTable() error {
+	return DB.AutoMigrate(&Mp4File{}, &User{})
+}
+
+func InitializeDbAndTable(dbfile string) error {
+	if err := InitializeDb(dbfile); err != nil {
+		return err
+	}
+	if err := InitializeTable(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func initializeCache() error {
-	log.Println("initializeCache...")
 	return DB.Find(&Mp4FilesCache).Error
+}
+
+func initializeBase(dbfile, logfile string) {
+	initializeLog(logfile)
+	log.Println("initializeBase...")
+	if err := InitializeDbAndTable(dbfile); err != nil {
+		log.Fatal(err)
+	}
+	if err := initializeCache(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func initializeRouter(g *gin.Engine) {
@@ -68,18 +88,5 @@ func initializeRouter(g *gin.Engine) {
 	g.NoRoute(doNoRoute)
 	for _, route := range g.Routes() {
 		log.Printf("[%-4s] %s", route.Method, route.Path)
-	}
-}
-
-func initialize(dbfile, logfile string) {
-	initializeLog(logfile)
-	if err := initializeDb(dbfile); err != nil {
-		log.Fatal(err)
-	}
-	if err := initializeTable(); err != nil {
-		log.Fatal(err)
-	}
-	if err := initializeCache(); err != nil {
-		log.Fatal(err)
 	}
 }

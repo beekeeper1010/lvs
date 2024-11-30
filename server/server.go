@@ -8,7 +8,7 @@ import (
 )
 
 func Run(addr, dbfile, logfile string) {
-	initialize(dbfile, logfile)
+	initializeBase(dbfile, logfile)
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.Default()
 	g.LoadHTMLFiles("index.html")

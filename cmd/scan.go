@@ -12,10 +12,6 @@ import (
 	"github.com/beekeeper1010/lvs2/server"
 
 	"github.com/spf13/cobra"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 )
 
 var scanCmd = &cobra.Command{
@@ -38,11 +34,11 @@ var scanCmd = &cobra.Command{
 }
 
 func init() {
+	scanCmd.Flags().String("db", "lvs2.db", "sqlite db file for result")
 	scanCmd.Flags().StringArrayP("dir", "d", nil, "dir to scan")
 	scanCmd.MarkFlagRequired("dir")
-	scanCmd.Flags().IntP("filter", "f", 300, "skip mp4 file which duration is less than this value(seconds)")
-	scanCmd.Flags().Int("height", 200, "height of thumbnail, min 100")
-	scanCmd.Flags().String("db", "lvs2.db", "sqlite db file to generate")
+	scanCmd.Flags().IntP("filter", "f", 60, "skip mp4 files which duration is less than this value(seconds)")
+	scanCmd.Flags().Int("height", 100, "height of thumbnail, min 100")
 	rootCmd.AddCommand(scanCmd)
 }
 
@@ -91,22 +87,14 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 		fmt.Println("no mp4 files found")
 		return nil
 	}
-	os.Remove(dbfile)
-	db, err := gorm.Open(sqlite.Open(dbfile), &gorm.Config{
-		DisableForeignKeyConstraintWhenMigrating: true,
-		NamingStrategy: schema.NamingStrategy{
-			TablePrefix:   "t_",
-			SingularTable: true,
-		},
-		Logger: logger.Default.LogMode(logger.Error),
-	})
-	if err != nil {
+	if err := server.InitializeDb(dbfile); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&server.Mp4File{}); err != nil {
+	server.DB.Migrator().DropTable(&server.Mp4File{})
+	if err := server.InitializeTable(); err != nil {
 		return err
 	}
-	result := db.Create(mp4Files)
+	result := server.DB.Create(mp4Files)
 	if result.Error == nil {
 		fmt.Println("inserted", result.RowsAffected, "record(s) to", dbfile)
 	}
