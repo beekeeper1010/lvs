@@ -56,6 +56,7 @@ go build -ldflags="-s -w"
   help        Help about any command
   run         Run server
   scan        Scan mp4 files to generate sqlite db file
+  user        User management
 
   Flags:
   -h, --help      help for lvs2
