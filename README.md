@@ -33,7 +33,7 @@ go build -ldflags="-s -w"
 
   ```bash
   # 基于lvs2.db数据库档案启动视频服务，监听8080端口，并将日志输出到lvs2.log文件中
-  lvs2 run --addr=:8080 --db=lvs2.db --log=lvs2.log
+  lvs2 run --addr=:8080 --cfg=config.json --db=lvs2.db --log=lvs2.log
   ```
 
 + 自动补全

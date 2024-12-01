@@ -1,21 +1,21 @@
-package server
+package initialize
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"os"
 
+	"github.com/beekeeper1010/lvs2/api"
+	"github.com/beekeeper1010/lvs2/global"
+	"github.com/beekeeper1010/lvs2/middleware"
+	"github.com/beekeeper1010/lvs2/model"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
-)
-
-var (
-	DB            *gorm.DB
-	Mp4FilesCache []Mp4File
 )
 
 func initializeLog(logfile string) {
@@ -42,12 +42,23 @@ func InitializeDb(dbfile string) error {
 	if err != nil {
 		return err
 	}
-	DB = db
+	global.DB = db
 	return err
 }
 
 func InitializeTable() error {
-	return DB.AutoMigrate(&Mp4File{}, &User{})
+	return global.DB.AutoMigrate(
+		&model.Mp4File{},
+		&model.User{},
+	)
+}
+
+func initializeConfig(cfgfile string) error {
+	data, err := os.ReadFile(cfgfile)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &global.Config)
 }
 
 func InitializeDbAndTable(dbfile string) error {
@@ -61,12 +72,15 @@ func InitializeDbAndTable(dbfile string) error {
 }
 
 func initializeCache() error {
-	return DB.Find(&Mp4FilesCache).Error
+	return global.DB.Find(&global.Mp4FilesCache).Error
 }
 
-func initializeBase(dbfile, logfile string) {
+func InitializeBase(dbfile, cfgfile, logfile string) {
 	initializeLog(logfile)
 	log.Println("initializeBase...")
+	if err := initializeConfig(cfgfile); err != nil {
+		log.Fatal(err)
+	}
 	if err := InitializeDbAndTable(dbfile); err != nil {
 		log.Fatal(err)
 	}
@@ -75,17 +89,17 @@ func initializeBase(dbfile, logfile string) {
 	}
 }
 
-func initializeRouter(g *gin.Engine) {
+func InitializeRouter(g *gin.Engine) {
 	log.Println("initializeRouter...")
-	api := g.Group("/api")
+	group := g.Group("/api", middleware.JwtAuth())
 	{
-		api.POST("/login", doLogin)
-		api.POST("/logout", doLogout)
-		api.GET("/mp4/list", doGetMp4List)
-		api.GET("/mp4/total", doGetMp4Total)
-		api.GET("/mp4/:id", doGetMp4File)
+		group.POST("/login", api.HandleLogin)
+		group.POST("/logout", api.HandleLogout)
+		group.GET("/mp4/list", api.HandleGetMp4List)
+		group.GET("/mp4/total", api.HandleGetMp4Total)
+		group.GET("/mp4/:id", api.HandleGetMp4File)
 	}
-	g.NoRoute(doNoRoute)
+	g.NoRoute(api.HandleNoRoute)
 	for _, route := range g.Routes() {
 		log.Printf("[%-4s] %s", route.Method, route.Path)
 	}

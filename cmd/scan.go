@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/beekeeper1010/lvs2/server"
+	"github.com/beekeeper1010/lvs2/global"
+	"github.com/beekeeper1010/lvs2/initialize"
+	"github.com/beekeeper1010/lvs2/model"
 
 	"github.com/spf13/cobra"
 )
@@ -43,7 +45,7 @@ func init() {
 }
 
 func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
-	mp4Files := make([]*server.Mp4File, 0, 1000)
+	mp4Files := make([]*model.Mp4File, 0, 1000)
 	for _, dir := range dirs {
 		fmt.Println("scanning", dir)
 		filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
@@ -73,7 +75,7 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 				return filepath.SkipDir
 			}
 			fmt.Printf("found %s, duration=%ds\n", path, duration)
-			mp4Files = append(mp4Files, &server.Mp4File{
+			mp4Files = append(mp4Files, &model.Mp4File{
 				Name:      entry.Name(),
 				Path:      path,
 				Size:      fileInfo.Size(),
@@ -87,14 +89,14 @@ func scanMp4Files(dirs []string, filter, height int, dbfile string) error {
 		fmt.Println("no mp4 files found")
 		return nil
 	}
-	if err := server.InitializeDb(dbfile); err != nil {
+	if err := initialize.InitializeDb(dbfile); err != nil {
 		return err
 	}
-	server.DB.Migrator().DropTable(&server.Mp4File{})
-	if err := server.InitializeTable(); err != nil {
+	global.DB.Migrator().DropTable(&model.Mp4File{})
+	if err := initialize.InitializeTable(); err != nil {
 		return err
 	}
-	result := server.DB.Create(mp4Files)
+	result := global.DB.Create(mp4Files)
 	if result.Error == nil {
 		fmt.Println("inserted", result.RowsAffected, "record(s) to", dbfile)
 	}

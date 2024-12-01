@@ -5,7 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/beekeeper1010/lvs2/server"
+	"github.com/beekeeper1010/lvs2/global"
+	"github.com/beekeeper1010/lvs2/initialize"
+	"github.com/beekeeper1010/lvs2/model"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
@@ -84,14 +86,14 @@ func init() {
 }
 
 func addUser(username, nickname, password string, admin bool, dbfile string) error {
-	if err := server.InitializeDbAndTable(dbfile); err != nil {
+	if err := initialize.InitializeDbAndTable(dbfile); err != nil {
 		return err
 	}
 	pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	return server.DB.Create(&server.User{
+	return global.DB.Create(&model.User{
 		Username: username,
 		Nickname: nickname,
 		Password: string(pwd),
@@ -100,10 +102,10 @@ func addUser(username, nickname, password string, admin bool, dbfile string) err
 }
 
 func delUser(username, dbfile string) error {
-	if err := server.InitializeDbAndTable(dbfile); err != nil {
+	if err := initialize.InitializeDbAndTable(dbfile); err != nil {
 		return err
 	}
-	result := server.DB.Unscoped().Where("username = ?", username).Delete(&server.User{})
+	result := global.DB.Unscoped().Where("username = ?", username).Delete(&model.User{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -114,11 +116,11 @@ func delUser(username, dbfile string) error {
 }
 
 func listUsers(dbfile string) error {
-	if err := server.InitializeDbAndTable(dbfile); err != nil {
+	if err := initialize.InitializeDbAndTable(dbfile); err != nil {
 		return err
 	}
-	var users []server.User
-	if err := server.DB.Find(&users).Error; err != nil {
+	var users []model.User
+	if err := global.DB.Find(&users).Error; err != nil {
 		return err
 	}
 	table := tablewriter.NewWriter(os.Stdout)
