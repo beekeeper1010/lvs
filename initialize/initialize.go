@@ -1,7 +1,6 @@
 package initialize
 
 import (
-	"encoding/json"
 	"io"
 	"log"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"github.com/beekeeper1010/lvs2/model"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/yaml.v3"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -28,6 +28,14 @@ func initializeLog(logfile string) {
 		Compress:   true,
 	}, os.Stdout)
 	log.SetOutput(w)
+}
+
+func initializeConfig(cfgfile string) error {
+	data, err := os.ReadFile(cfgfile)
+	if err != nil {
+		return err
+	}
+	return yaml.Unmarshal(data, &global.Config)
 }
 
 func InitializeDb(dbfile string) error {
@@ -53,22 +61,11 @@ func InitializeTable() error {
 	)
 }
 
-func initializeConfig(cfgfile string) error {
-	data, err := os.ReadFile(cfgfile)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, &global.Config)
-}
-
 func InitializeDbAndTable(dbfile string) error {
 	if err := InitializeDb(dbfile); err != nil {
 		return err
 	}
-	if err := InitializeTable(); err != nil {
-		return err
-	}
-	return nil
+	return InitializeTable()
 }
 
 func initializeCache() error {

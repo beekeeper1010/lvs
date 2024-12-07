@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/beekeeper1010/lvs2/global"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Use:     "lvs2",
 	Short:   "lvs2 is a Local Video Service",
 	Long:    "lvs2 is a Local Video Service",
-	Version: "v1.0.0",
+	Version: global.VERSION,
 }
 
 func Execute() {

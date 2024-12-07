@@ -1,0 +1,4 @@
+jwt:
+  expired-hours: 168 # 7*24小时
+  issuer: lvs2
+  secret-key: "!@#$%^&*()123"

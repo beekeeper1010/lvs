@@ -10,7 +10,7 @@
 ## 特性
 
 1. 扫描用户指定目录下的`mp4`文件，生成`sqlite3`数据库档案(文件名、路径、大小、播放时长、缩略图)
-2. 基于`gin`提供播放服务，通过解析请求头中的`Range`属性实现分片下载播放
+2. 基于`gin`提供视频服务，通过解析请求头中的`Range`属性实现分片下载播放
 
 ## 构建
 
@@ -26,14 +26,21 @@ go build -ldflags="-s -w"
 
   ```bash
   # 扫描目录1和目录2中的mp4文件，过滤掉小于60秒的视频，指定缩略图高度为100px，生成lvs2.db数据库档案
-  lvs2 scan --dir=目录1 --dir=目录2 --filter=60 --height=100 --db=lvs2.db
+  lvs2 mp4 scan --dir=目录1 --dir=目录2 --filter=60 --height=100 --db=lvs2.db
+  ```
+
++ 添加用户
+
+  ```bash
+  # 添加管理员用户
+  lvs2 user add --admin --db=lvs2.db --nickname=Nickname --username=Username --password=Password
   ```
 
 + 运行服务
 
   ```bash
   # 基于lvs2.db数据库档案启动视频服务，监听8080端口，并将日志输出到lvs2.log文件中
-  lvs2 run --addr=:8080 --cfg=config.json --db=lvs2.db --log=lvs2.log
+  lvs2 run --addr=:8080 --cfg=config.yaml --db=lvs2.db --log=lvs2.log
   ```
 
 + 自动补全
@@ -49,18 +56,18 @@ go build -ldflags="-s -w"
   lvs2 is a Local Video Service
 
   Usage:
-  lvs2 [command]
+    lvs2 [command]
 
   Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  run         Run server
-  scan        Scan mp4 files to generate sqlite db file
-  user        User management
+    completion  Generate the autocompletion script for the specified shell
+    help        Help about any command
+    mp4         Mp4 management
+    run         Run server
+    user        User management
 
   Flags:
-  -h, --help      help for lvs2
-  -v, --version   version for lvs2
+    -h, --help      help for lvs2
+    -v, --version   version for lvs2
 
   Use "lvs2 [command] --help" for more information about a command.
   ```
@@ -77,13 +84,20 @@ go build -ldflags="-s -w"
 
 ### 后端
 
-+ [ ] 鉴权
++ [ ] swagger
++ [ ] 角色
++ [ ] casbin鉴权
++ [ ] 刷新token
++ [ ] 重复登陆，之前的token失效处理
 + [ ] IO性能优化
 + [ ] 弹幕
 + [ ] 其他
 
 ### 前端
 
++ [ ] login页面
++ [ ] logout删cookie、localstorage
++ [ ] 超时刷新token
 + [ ] 用户管理
 + [ ] 播放页面，卡片中展示缩略图、文件名等
 + [ ] 搜索

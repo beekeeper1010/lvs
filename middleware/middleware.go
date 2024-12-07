@@ -17,31 +17,31 @@ func JwtAuth() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		tokenStr := c.Request.Header.Get("x-authorization")
+		tokenStr := c.Request.Header.Get(global.X_TOKEN)
 		if tokenStr == "" {
-			tokenStr, _ = c.Cookie("x-authorization")
-		}
-		if tokenStr == "" {
-			utils.ResponseAuthError(c, errors.New("token is empty"))
-			c.Abort()
-			return
+			tokenStr, _ = c.Cookie(global.X_TOKEN)
+			if tokenStr == "" {
+				utils.ResponseAuthError(c, errors.New("no token"))
+				c.Abort()
+				return
+			}
 		}
 		token, err := jwt.ParseWithClaims(tokenStr, &model.Claims{}, func(token *jwt.Token) (interface{}, error) {
 			return []byte(global.Config.Jwt.SecretKey), nil
 		})
 		if err != nil {
 			log.Println(err)
-			utils.ResponseAuthError(c, errors.New("token is invalid"))
+			utils.ResponseAuthError(c, errors.New("invalid token"))
 			c.Abort()
 			return
 		}
 		if claims, ok := token.Claims.(*model.Claims); ok && token.Valid {
 			c.Set("claims", claims)
+			c.Next()
 		} else {
-			utils.ResponseAuthError(c, errors.New("token is invalid"))
+			utils.ResponseAuthError(c, errors.New("invalid token"))
 			c.Abort()
 			return
 		}
-		c.Next()
 	}
 }

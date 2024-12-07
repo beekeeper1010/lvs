@@ -25,21 +25,21 @@ var (
 )
 
 func HandleLogin(c *gin.Context) {
-	c.SetCookie("x-authorization", "", -1, "/", "", false, false)
+	c.SetCookie(global.X_TOKEN, "", -1, "/", "", false, false)
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ResponseLoginError(c, err)
+		utils.ResponseAuthError(c, err)
 		return
 	}
 	var user model.User
 	if err := global.DB.First(&user, "username = ?", req.Username).Error; err != nil {
 		log.Println(err)
-		utils.ResponseLoginError(c, errLogin)
+		utils.ResponseAuthError(c, errLogin)
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		log.Println(err)
-		utils.ResponseLoginError(c, errLogin)
+		utils.ResponseAuthError(c, errLogin)
 		return
 	}
 	claims := model.Claims{
@@ -47,18 +47,18 @@ func HandleLogin(c *gin.Context) {
 		Nickname: user.Nickname,
 		Admin:    user.Admin,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "lvs2",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			Issuer:    global.Config.Jwt.Issuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(global.Config.Jwt.ExpiredHours) * time.Hour)),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(global.Config.Jwt.SecretKey))
 	if err != nil {
-		utils.ResponseLoginError(c, err)
+		utils.ResponseAuthError(c, err)
 		return
 	}
-	c.SetCookie("x-authorization", tokenStr, int(7*24*time.Hour.Seconds()), "/", "", false, false)
+	c.SetCookie(global.X_TOKEN, tokenStr, global.Config.Jwt.ExpiredHours*int(time.Hour.Seconds()), "/", "", false, false)
 	utils.ResponseData(c, loginResponse{
 		Username:  req.Username,
 		Token:     tokenStr,
@@ -93,10 +93,6 @@ func HandleGetMp4Total(c *gin.Context) {
 
 func HandleNoRoute(c *gin.Context) {
 	utils.ResponseHTML(c, "index.html", nil)
-}
-
-func genToken() (string, error) {
-	return "", nil
 }
 
 func sendFile(c *gin.Context, mp4File model.Mp4File) {

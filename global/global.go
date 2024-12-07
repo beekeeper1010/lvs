@@ -6,6 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	VERSION = "v1.1.1"
+	X_TOKEN = "x-authorization"
+)
+
 var (
 	Config        config.Config
 	DB            *gorm.DB

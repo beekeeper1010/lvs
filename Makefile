@@ -1,7 +1,7 @@
 BUILD     := build/
 BIN       := lvs2.exe
 TARGET    := $(BUILD)$(BIN)
-RESOURCES := $(wildcard *.db *.html)
+RESOURCES := $(wildcard templates/ *.db *.yaml)
 
 $(shell mkdir -p $(BUILD))
 

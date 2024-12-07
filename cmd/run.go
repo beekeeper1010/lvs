@@ -26,7 +26,7 @@ var runCmd = &cobra.Command{
 
 func init() {
 	runCmd.Flags().StringP("addr", "a", ":8080", "server listen address")
-	runCmd.Flags().StringP("cfg", "c", "config.json", "config file for server")
+	runCmd.Flags().StringP("cfg", "c", "config.yaml", "config file for server")
 	runCmd.Flags().StringP("db", "d", "lvs2.db", "sqlite db file for server")
 	runCmd.Flags().StringP("log", "l", "lvs2.log", "log file for server")
 	rootCmd.AddCommand(runCmd)
@@ -44,7 +44,7 @@ func run(addr, dbfile, cfgfile, logfile string) {
 	initialize.InitializeBase(dbfile, cfgfile, logfile)
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.Default()
-	g.LoadHTMLFiles("index.html")
+	g.LoadHTMLGlob("templates/*")
 	g.Use(cors.Default())
 	initialize.InitializeRouter(g)
 	log.Println("server running on", addr)

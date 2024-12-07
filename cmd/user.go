@@ -130,7 +130,13 @@ func listUsers(dbfile string) error {
 		if user.Admin {
 			admin = "Y"
 		}
-		table.Append([]string{strconv.Itoa(i + 1), user.Username, user.Nickname, user.Password, admin})
+		table.Append([]string{
+			strconv.Itoa(i + 1),
+			user.Username,
+			user.Nickname,
+			user.Password,
+			admin,
+		})
 	}
 	table.Render()
 	return nil
