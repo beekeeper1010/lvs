@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Video Service - Player</title>
+    <link rel="stylesheet" href="static/css/player.css" />
+    <script src="static/js/player.js" defer></script>
+    <script src="static/js/jquery.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="video-wrapper">
+        <video id="player" autoplay controls muted>
+          您的浏览器不支持播放，请更换浏览器试试
+        </video>
+      </div>
+      <div class="control">
+        <button id="prev">前一个</button>
+        <button id="next">下一个</button>
+        <input id="curr" type="number" /> /
+        <span id="total">NaN</span>
+        <button id="logout">退出</button>
+      </div>
+    </div>
+  </body>
+</html>

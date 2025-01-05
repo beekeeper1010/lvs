@@ -24,6 +24,30 @@ var (
 	errLogin = errors.New("username or password error")
 )
 
+func HandleLoginHTML(c *gin.Context) {
+	if logined(c) {
+		c.Redirect(http.StatusFound, "/plaza.html")
+	} else {
+		utils.ResponseHTML(c, "login.html", nil)
+	}
+}
+
+func HandlePlazaHTML(c *gin.Context) {
+	if logined(c) {
+		utils.ResponseHTML(c, "plaza.html", nil)
+	} else {
+		c.Redirect(http.StatusFound, "/login.html")
+	}
+}
+
+func HandlePlayerHTML(c *gin.Context) {
+	if logined(c) {
+		utils.ResponseHTML(c, "player.html", nil)
+	} else {
+		c.Redirect(http.StatusFound, "/login.html")
+	}
+}
+
 func HandleLogin(c *gin.Context) {
 	c.SetCookie(global.X_TOKEN, "", -1, "/", "", false, false)
 	var req loginRequest
@@ -58,7 +82,7 @@ func HandleLogin(c *gin.Context) {
 		utils.ResponseAuthError(c, err)
 		return
 	}
-	c.SetCookie(global.X_TOKEN, tokenStr, global.Config.Jwt.ExpiredHours*int(time.Hour.Seconds()), "/", "", false, false)
+	c.SetCookie(global.X_TOKEN, tokenStr, 0, "/", "", false, false)
 	utils.ResponseData(c, loginResponse{
 		Username:  req.Username,
 		Token:     tokenStr,
@@ -67,6 +91,7 @@ func HandleLogin(c *gin.Context) {
 }
 
 func HandleLogout(c *gin.Context) {
+	c.SetCookie(global.X_TOKEN, "", -1, "/", "", false, false)
 	utils.ResponseOk(c)
 }
 
@@ -92,7 +117,12 @@ func HandleGetMp4Total(c *gin.Context) {
 }
 
 func HandleNoRoute(c *gin.Context) {
-	utils.ResponseHTML(c, "index.html", nil)
+	c.Redirect(http.StatusFound, "/login.html")
+}
+
+func logined(c *gin.Context) bool {
+	_, err := c.Cookie(global.X_TOKEN)
+	return err == nil
 }
 
 func sendFile(c *gin.Context, mp4File model.Mp4File) {

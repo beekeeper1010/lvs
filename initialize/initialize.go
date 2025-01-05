@@ -88,6 +88,9 @@ func InitializeBase(dbfile, cfgfile, logfile string) {
 
 func InitializeRouter(g *gin.Engine) {
 	log.Println("initializeRouter...")
+	g.GET("/login.html", api.HandleLoginHTML)
+	g.GET("/plaza.html", api.HandlePlazaHTML)
+	g.GET("/player.html", api.HandlePlayerHTML)
 	group := g.Group("/api", middleware.JwtAuth())
 	{
 		group.POST("/login", api.HandleLogin)

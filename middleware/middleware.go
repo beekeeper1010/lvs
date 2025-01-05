@@ -19,8 +19,8 @@ func JwtAuth() gin.HandlerFunc {
 		}
 		tokenStr := c.Request.Header.Get(global.X_TOKEN)
 		if tokenStr == "" {
-			tokenStr, _ = c.Cookie(global.X_TOKEN)
-			if tokenStr == "" {
+			var err error
+			if tokenStr, err = c.Cookie(global.X_TOKEN); err != nil {
 				utils.ResponseAuthError(c, errors.New("no token"))
 				c.Abort()
 				return

@@ -1,0 +1,32 @@
+body {
+  background: #cc3367;
+  font-family: 'Roboto', sans-serif;
+}
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 8px;
+  margin: 16px;
+  width: 200px;
+  height: 300px;
+  display: inline-block;
+  vertical-align: top;
+  cursor: pointer;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.thumbnail {
+  width: 100%;
+  border-radius: 12px;
+  height: 200px;
+  object-fit: cover;
+}
+
+.info {
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
