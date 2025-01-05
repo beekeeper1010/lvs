@@ -3,25 +3,31 @@ body {
   font-family: 'Roboto', sans-serif;
 }
 
+#mp4-list {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .card {
   border: 1px solid #ccc;
   border-radius: 12px;
   padding: 8px;
   margin: 16px;
-  width: 200px;
-  height: 300px;
+  width: 274px;
+  height: 220px;
   display: inline-block;
   vertical-align: top;
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1); /* 添加立体效果 */
 }
 
 .thumbnail {
   width: 100%;
-  border-radius: 12px;
-  height: 200px;
-  object-fit: cover;
+  height: 137px;
+  object-fit: scale-down;
 }
 
 .info {

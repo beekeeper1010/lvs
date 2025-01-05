@@ -25,8 +25,8 @@ go build -ldflags="-s -w"
 + 扫描mp4文件
 
   ```bash
-  # 扫描目录1和目录2及其子目录中的mp4文件，过滤掉小于60秒的视频，指定缩略图高度为100px，生成lvs2.db数据库中的mp4文件档案表
-  lvs2 mp4 scan --dir=目录1 --dir=目录2 --filter=60 --height=100 --db=lvs2.db
+  # 扫描目录1和目录2及其子目录中的mp4文件，过滤掉小于60秒的视频，指定缩略图高度为200px，生成lvs2.db数据库中的mp4文件档案表
+  lvs2 mp4 scan --dir=目录1 --dir=目录2 --filter=60 --height=200 --db=lvs2.db
   ```
 
 + 添加用户

@@ -60,7 +60,7 @@ func init() {
 	mp4ScanCmd.Flags().StringArrayP("dir", "d", nil, "dir to scan")
 	mp4ScanCmd.MarkFlagRequired("dir")
 	mp4ScanCmd.Flags().IntP("filter", "f", 60, "skip mp4 files which duration is less than this value(seconds)")
-	mp4ScanCmd.Flags().Int("height", 100, "height of thumbnail, min 100")
+	mp4ScanCmd.Flags().Int("height", 200, "height of thumbnail, min 100")
 	/* mp4ListCmd */
 	mp4ListCmd.Flags().String("db", "lvs2.db", "sqlite db file")
 	/* mp4Cmd */
@@ -137,9 +137,11 @@ func getDuration(path string) (int, error) {
 	return int(duration), err
 }
 
+// 用ffmpeg生成宽高比为16:9的缩略图，超出原始比例部分用黑色填充
 func getThumbnailBase64(path string, offset, height int) (string, error) {
+	width := height * 16 / 9
 	tmpPng := filepath.Join(os.TempDir(), "tmp.png")
-	command := exec.Command("ffmpeg", "-v", "error", "-ss", strconv.Itoa(offset), "-i", path, "-vframes", "1", "-vf", fmt.Sprintf("scale=-1:%d", height), "-y", tmpPng)
+	command := exec.Command("ffmpeg", "-v", "error", "-ss", strconv.Itoa(offset), "-i", path, "-vframes", "1", "-vf", fmt.Sprintf("scale='if(gt(iw,ih),min(%d,iw),-1)':'if(gt(iw,ih),-1,min(%d,ih))':force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2", width, height, width, height), "-y", tmpPng)
 	if _, err := command.Output(); err != nil {
 		return "", err
 	}
