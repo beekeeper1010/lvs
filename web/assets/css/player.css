@@ -9,64 +9,37 @@ body {
   font-family: Arial, sans-serif;
 }
 
-.container {
-  text-align: center;
-  width: 90%;
-  max-width: 800px;
-}
-
-.video-wrapper {
-  position: relative;
-  width: 100%;
-  padding-top: 61.8%;
-}
-
 video {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border: 2px solid #fff;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 82%;
+  border: 1px solid #853535;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   object-fit: contain;
 }
 
 @media (max-width: 600px) {
-  .video-wrapper {
-    padding-top: 0;
-    height: 100vh;
-  }
-
   video {
-    width: auto;
-    height: 100%;
-  }
-
-  .control {
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  button,
-  input {
-    width: 100%;
-    font-size: 14px;
-  }
-
-  input[type='number'] {
-    width: 100%;
+    top: 43%;
+    width: 90%;
+    height: 80%;
   }
 }
 
 .control {
+  position: absolute;
+  bottom: 3%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   margin-top: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 button,
@@ -90,9 +63,4 @@ input:hover {
 input[type='number'] {
   width: 60px;
   text-align: center;
-}
-
-#total {
-  font-size: 16px;
-  color: #fff;
 }
