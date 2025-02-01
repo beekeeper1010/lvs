@@ -49,7 +49,6 @@ func HandlePlayerHTML(c *gin.Context) {
 }
 
 func HandleLogin(c *gin.Context) {
-	c.SetCookie(global.X_TOKEN, "", -1, "/", "", false, false)
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ResponseAuthError(c, err)

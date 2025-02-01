@@ -3,6 +3,7 @@ package utils
 import (
 	"net/http"
 
+	"github.com/beekeeper1010/lvs2/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,6 +36,7 @@ func ResponseError(c *gin.Context, err error) {
 }
 
 func ResponseAuthError(c *gin.Context, err error) {
+	c.SetCookie(global.X_TOKEN, "", -1, "/", "", false, false)
 	c.JSON(http.StatusUnauthorized, gin.H{
 		"code":    http.StatusUnauthorized,
 		"data":    nil,
