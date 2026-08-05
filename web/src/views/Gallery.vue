@@ -1,27 +1,76 @@
 <template>
   <div class="gallery-page">
     <header class="topbar">
-      <h2>视频广场</h2>
-      <button class="logout-btn" @click="onLogout">注销</button>
+      <div class="brand">
+        <div class="brand-badge">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
+          </svg>
+        </div>
+        <span class="brand-name">LVS</span>
+      </div>
+      <button class="logout-btn" @click="onLogout">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="M16 17l5-5-5-5" />
+          <path d="M21 12H9" />
+        </svg>
+        注销
+      </button>
     </header>
 
-    <div v-if="loading" class="status">加载中…</div>
-    <div v-else-if="videos.length === 0" class="status">暂无视频，请先运行 lvs scan</div>
+    <section class="hero">
+      <h1>视频广场</h1>
+      <p>共 <b>{{ total }}</b> 部影片 · 发现你的本地收藏</p>
+    </section>
+
+    <div v-if="loading" class="status"><div class="spinner"></div></div>
+
+    <div v-else-if="videos.length === 0" class="status empty">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="20" rx="3" />
+          <circle cx="12" cy="12" r="4" />
+          <line x1="12" y1="2" x2="12" y2="6" />
+        </svg>
+      </div>
+      <p>暂无视频</p>
+      <span>请先运行 <code>lvs scan --dir &lt;目录&gt;</code> 扫描视频</span>
+    </div>
+
     <div v-else class="grid">
-      <div v-for="v in videos" :key="v.id" class="card" @click="play(v)">
+      <div
+        v-for="(v, i) in videos"
+        :key="v.id"
+        class="card"
+        :style="{ animationDelay: `${i * 45}ms` }"
+        @click="play(v)"
+      >
         <div class="thumb">
           <img v-if="v.thumb_path" :src="thumbUrl(v)" loading="lazy" alt="" />
-          <div v-else class="no-thumb">无预览</div>
-          <div class="play-icon">▶</div>
+          <div v-else class="no-thumb">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+              <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
+            </svg>
+          </div>
+          <div class="shade"></div>
+          <div class="play-btn">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
+            </svg>
+          </div>
         </div>
-        <div class="name" :title="v.name">{{ v.name }}</div>
+        <div class="meta">
+          <div class="name" :title="v.name">{{ v.name }}</div>
+          <div class="date">{{ v.created_at }}</div>
+        </div>
       </div>
     </div>
 
     <footer v-if="total > 0" class="pager">
-      <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
-      <span>{{ page }} / {{ totalPages }}</span>
-      <button :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
+      <button class="pg-btn" :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
+      <span class="pg-info">{{ page }} / {{ totalPages }}</span>
+      <button class="pg-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
     </footer>
   </div>
 </template>
@@ -46,7 +95,7 @@ function thumbUrl(v) {
 }
 
 function play(v) {
-  sessionStorage.setItem('lvs_video_name', v.name)
+  sessionStorage.setItem('lvs_video', JSON.stringify(v))
   router.push(`/play/${v.id}`)
 }
 
@@ -66,6 +115,7 @@ async function load() {
 function changePage(p) {
   page.value = p
   load()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function onLogout() {
@@ -84,68 +134,170 @@ onMounted(load)
 <style scoped>
 .gallery-page {
   min-height: 100vh;
+  animation: fadeUp 0.4s ease both;
 }
+
+/* 顶栏 */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 14px 28px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  position: sticky;
-  top: 0;
-  background: rgba(15, 17, 21, 0.9);
-  backdrop-filter: blur(8px);
-  z-index: 10;
+  background: rgba(11, 12, 17, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
-.topbar h2 {
-  font-size: 18px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-badge {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--grad);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(124, 92, 255, 0.4);
+}
+.brand-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .logout-btn {
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: transparent;
-  color: #e6e8eb;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-2);
+  font-size: 13px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.4);
 }
-.status {
+
+/* 页首 */
+.hero {
+  padding: 44px 28px 10px;
   text-align: center;
-  padding: 100px 0;
-  color: #8b93a7;
 }
+.hero h1 {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: linear-gradient(120deg, #fff 20%, #a78bfa 60%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero p {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.hero p b {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+/* 状态 */
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 90px 0;
+  color: var(--text-2);
+}
+.empty-icon {
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: var(--text-3);
+}
+.empty p {
+  font-size: 16px;
+  font-weight: 600;
+}
+.empty span {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.empty code {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(124, 92, 255, 0.14);
+  color: #b4a5ff;
+  font-size: 12px;
+}
+
+/* 卡片网格 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 20px;
-  padding: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 22px;
+  padding: 28px;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 .card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  opacity: 0;
+  animation: fadeUp 0.45s ease forwards;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease,
+    background 0.25s ease;
 }
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  transform: translateY(-6px);
+  background: var(--surface-hover);
+  border-color: rgba(124, 92, 255, 0.4);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 92, 255, 0.18);
 }
+
 .thumb {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: #000;
+  background: linear-gradient(135deg, #151724, #1c1e2b);
+  overflow: hidden;
 }
 .thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.45s ease;
+}
+.card:hover .thumb img {
+  transform: scale(1.07);
 }
 .no-thumb {
   width: 100%;
@@ -153,56 +305,87 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #555d6e;
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.28);
 }
-.play-icon {
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.55));
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.card:hover .shade {
+  opacity: 1;
+}
+.play-btn {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 38px;
-  color: #fff;
   opacity: 0;
-  background: rgba(0, 0, 0, 0.25);
-  transition: opacity 0.2s;
+  transform: scale(0.8);
+  transition: opacity 0.25s, transform 0.25s;
 }
-.card:hover .play-icon {
+.play-btn svg {
+  width: 52px;
+  height: 52px;
+  padding: 14px;
+  border-radius: 50%;
+  background: var(--grad);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(124, 92, 255, 0.5);
+}
+.card:hover .play-btn {
   opacity: 1;
+  transform: scale(1);
+}
+
+.meta {
+  padding: 13px 15px 14px;
 }
 .name {
-  padding: 12px 14px;
   font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.date {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 分页 */
 .pager {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 24px;
+  gap: 18px;
+  padding: 10px 0 40px;
 }
-.pager button {
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: transparent;
-  color: #e6e8eb;
-  font-size: 14px;
+.pg-btn {
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s;
 }
-.pager button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+.pg-btn:hover:not(:disabled) {
+  background: rgba(124, 92, 255, 0.18);
+  border-color: rgba(124, 92, 255, 0.5);
 }
-.pager button:disabled {
-  opacity: 0.4;
+.pg-btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
-.pager span {
-  color: #8b93a7;
-  font-size: 14px;
+.pg-info {
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 </style>
