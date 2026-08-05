@@ -9,14 +9,59 @@
         </div>
         <span class="brand-name">LVS</span>
       </div>
-      <button class="logout-btn" @click="onLogout">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <path d="M16 17l5-5-5-5" />
-          <path d="M21 12H9" />
-        </svg>
-        注销
-      </button>
+      <div class="actions">
+        <div class="user-chip" :title="userStore.username">
+          <span class="avatar">{{ userStore.avatarText }}</span>
+          <span class="nickname">{{ userStore.displayName }}</span>
+        </div>
+        <div class="dropdown">
+          <button class="menu-btn" @click.stop="menuOpen = !menuOpen">
+            操作
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="arrow"
+              :class="{ rotated: menuOpen }"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          <transition name="dropdown">
+            <div v-if="menuOpen" class="menu" @click.stop>
+              <button v-if="userStore.isAdmin" class="menu-item" @click="goUsers">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                用户管理
+              </button>
+              <button class="menu-item" @click="openSettings">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                用户设置
+              </button>
+              <button class="menu-item danger" @click="onLogout">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+                注销
+              </button>
+            </div>
+          </transition>
+        </div>
+      </div>
     </header>
 
     <section class="hero">
@@ -72,16 +117,55 @@
       <span class="pg-info">{{ page }} / {{ totalPages }}</span>
       <button class="pg-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
     </footer>
+
+    <!-- 用户设置弹窗 -->
+    <div v-if="showSettings" class="modal-mask" @click.self="showSettings = false">
+      <div class="modal">
+        <h3>用户设置</h3>
+        <div class="field">
+          <label>昵称</label>
+          <input v-model.trim="settingsForm.nickname" placeholder="显示昵称" />
+        </div>
+        <div class="field">
+          <label>当前密码</label>
+          <input v-model="settingsForm.oldPassword" type="password" placeholder="修改密码时填写" />
+        </div>
+        <div class="field">
+          <label>新密码</label>
+          <input v-model="settingsForm.newPassword" type="password" placeholder="留空则不修改" />
+        </div>
+        <div class="field">
+          <label>确认新密码</label>
+          <input v-model="settingsForm.confirmPassword" type="password" placeholder="再次输入新密码" />
+        </div>
+        <p v-if="settingsError" class="error">{{ settingsError }}</p>
+        <div class="modal-actions">
+          <button class="btn cancel" @click="showSettings = false">取消</button>
+          <button class="btn ok" :disabled="savingSettings" @click="saveSettings">
+            {{ savingSettings ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchVideos, logout } from '../api'
+import { fetchVideos, fetchUserInfo, updateProfile, logout } from '../api'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const videos = ref([])
+const menuOpen = ref(false)
+
+// 用户设置弹窗
+const showSettings = ref(false)
+const savingSettings = ref(false)
+const settingsError = ref('')
+const settingsForm = ref({ nickname: '', oldPassword: '', newPassword: '', confirmPassword: '' })
 const page = ref(1)
 const pageSize = 12
 const total = ref(0)
@@ -112,23 +196,100 @@ async function load() {
   }
 }
 
+// 从服务端同步最新用户信息（昵称可能已被修改）
+async function syncUserInfo() {
+  try {
+    userStore.setInfo(await fetchUserInfo())
+  } catch (e) {
+    // 忽略，沿用本地缓存
+  }
+}
+
 function changePage(p) {
   page.value = p
   load()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function goUsers() {
+  menuOpen.value = false
+  router.push('/users')
+}
+
+function openSettings() {
+  menuOpen.value = false
+  settingsForm.value = {
+    nickname: userStore.nickname || userStore.username,
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  }
+  settingsError.value = ''
+  showSettings.value = true
+}
+
+async function saveSettings() {
+  if (!settingsForm.value.nickname) {
+    settingsError.value = '昵称不能为空'
+    return
+  }
+  if (settingsForm.value.newPassword && !settingsForm.value.oldPassword) {
+    settingsError.value = '修改密码需填写当前密码'
+    return
+  }
+  if (settingsForm.value.newPassword !== settingsForm.value.confirmPassword) {
+    settingsError.value = '两次输入的新密码不一致'
+    return
+  }
+  const changedPwd = !!settingsForm.value.newPassword
+  savingSettings.value = true
+  settingsError.value = ''
+  try {
+    await updateProfile({
+      nickname: settingsForm.value.nickname,
+      password: settingsForm.value.newPassword,
+      old_password: settingsForm.value.oldPassword,
+    })
+    showSettings.value = false
+    if (changedPwd) {
+      // 密码已修改，旧 token 已失效，强制重新登录
+      userStore.logout()
+      router.push({ path: '/login', query: { msg: '密码已修改，请重新登录' } })
+      return
+    }
+    syncUserInfo()
+  } catch (e) {
+    settingsError.value = e.message || '保存失败'
+  } finally {
+    savingSettings.value = false
+  }
+}
+
 async function onLogout() {
+  menuOpen.value = false
   try {
     await logout()
   } catch (e) {
     /* ignore */
   }
-  localStorage.removeItem('token')
+  userStore.logout()
   router.push('/login')
 }
 
-onMounted(load)
+// 点击页面空白区域收起下拉菜单
+function onDocClick() {
+  menuOpen.value = false
+}
+
+onMounted(() => {
+  load()
+  syncUserInfo()
+  document.addEventListener('click', onDocClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick)
+})
 </script>
 
 <style scoped>
@@ -176,7 +337,16 @@ onMounted(load)
   background-clip: text;
   color: transparent;
 }
-.logout-btn {
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.dropdown {
+  position: relative;
+  z-index: 32;
+}
+.menu-btn {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -184,15 +354,92 @@ onMounted(load)
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-2);
+  color: var(--text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.logout-btn:hover {
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.menu-btn .arrow {
+  transition: transform 0.2s;
+}
+.menu-btn .arrow.rotated {
+  transform: rotate(180deg);
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #1a1c26;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
+  z-index: 31;
+}
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text);
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.4);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.menu-item:hover {
+  background: rgba(124, 92, 255, 0.16);
+  color: #c4b5fd;
+}
+.menu-item.danger:hover {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+.avatar {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--grad);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.nickname {
+  max-width: 120px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 页首 */
@@ -387,5 +634,96 @@ onMounted(load)
   font-size: 13px;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
+}
+
+/* 设置弹窗 */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+}
+.modal {
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  padding: 30px 32px;
+  border-radius: 18px;
+  background: #1a1c26;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  animation: fadeUp 0.25s ease both;
+}
+.modal h3 {
+  margin-bottom: 22px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.field {
+  margin-bottom: 16px;
+}
+.field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.field input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input:focus {
+  border-color: rgba(124, 92, 255, 0.7);
+  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.16);
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 2px 0 12px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+.btn {
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.btn.cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.btn.cancel:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+}
+.btn.ok {
+  background: var(--grad);
+  color: #fff;
+  font-weight: 600;
+}
+.btn.ok:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.btn.ok:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

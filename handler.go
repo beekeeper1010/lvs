@@ -26,25 +26,157 @@ func handleLogin(c *gin.Context) {
 		return
 	}
 	var (
-		id   int64
-		hash string
-		role string
+		id       int64
+		hash     string
+		nickname string
+		role     string
+		pwdVer   int64
 	)
-	err := db.QueryRow(`SELECT id, password, role FROM users WHERE username = ?`, req.Username).Scan(&id, &hash, &role)
+	err := db.QueryRow(`SELECT id, password, nickname, role, pwd_ver FROM users WHERE username = ?`, req.Username).
+		Scan(&id, &hash, &nickname, &role, &pwdVer)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
 		respond(c, 1, "用户名或密码错误", nil)
 		return
 	}
-	token, err := generateToken(id, req.Username, role)
+	if nickname == "" {
+		nickname = req.Username
+	}
+	token, err := generateToken(id, req.Username, nickname, role, pwdVer)
 	if err != nil {
 		respond(c, 1, "登录失败", nil)
 		return
 	}
-	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "role": role})
+	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "nickname": nickname, "role": role})
 }
 
 // handleLogout 由前端删除本地 token，服务端仅返回成功
 func handleLogout(c *gin.Context) {
+	respond(c, 0, "ok", nil)
+}
+
+// handleUserProfile 修改当前用户昵称/密码。改密码须校验当前密码
+func handleUserProfile(c *gin.Context) {
+	claims := c.MustGet("claims").(*Claims)
+	var req struct {
+		Nickname    string `json:"nickname"`
+		Password    string `json:"password"`
+		OldPassword string `json:"old_password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respond(c, 1, "请求参数错误", nil)
+		return
+	}
+	if req.Nickname == "" && req.Password == "" {
+		respond(c, 1, "至少要修改一项", nil)
+		return
+	}
+	if req.Password != "" {
+		var hash string
+		if err := db.QueryRow(`SELECT password FROM users WHERE id = ?`, claims.UserID).Scan(&hash); err != nil {
+			respond(c, 1, "用户不存在", nil)
+			return
+		}
+		if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.OldPassword)) != nil {
+			respond(c, 1, "当前密码错误", nil)
+			return
+		}
+	}
+	if err := updateUser(claims.UserID, req.Nickname, req.Password); err != nil {
+		respond(c, 1, err.Error(), nil)
+		return
+	}
+	respond(c, 0, "ok", nil)
+}
+
+// handleUserInfo 返回当前登录用户的最新信息（昵称可能已被修改）
+func handleUserInfo(c *gin.Context) {
+	claims := c.MustGet("claims").(*Claims)
+	var (
+		nickname string
+		role     string
+	)
+	if err := db.QueryRow(`SELECT nickname, role FROM users WHERE id = ?`, claims.UserID).Scan(&nickname, &role); err != nil {
+		respond(c, 1, "用户不存在", nil)
+		return
+	}
+	if nickname == "" {
+		nickname = claims.Username
+	}
+	respond(c, 0, "ok", gin.H{"username": claims.Username, "nickname": nickname, "role": role})
+}
+
+// adminAuthMiddleware 仅允许 admin 角色访问
+func adminAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, ok := c.Get("claims")
+		if !ok || claims.(*Claims).Role != "admin" {
+			respond(c, 2, "无权限", nil)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// ---------- 用户管理接口（仅 admin） ----------
+
+func handleAdminUsers(c *gin.Context) {
+	users, err := listUsers()
+	if err != nil {
+		respond(c, 1, "查询失败", nil)
+		return
+	}
+	respond(c, 0, "ok", users)
+}
+
+func handleAdminUserCreate(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Nickname string `json:"nickname"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Username == "" || req.Password == "" {
+		respond(c, 1, "用户名和密码不能为空", nil)
+		return
+	}
+	if err := createUser(req.Username, req.Password, req.Nickname); err != nil {
+		respond(c, 1, err.Error(), nil)
+		return
+	}
+	respond(c, 0, "ok", nil)
+}
+
+func handleAdminUserUpdate(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的用户ID", nil)
+		return
+	}
+	var req struct {
+		Nickname string `json:"nickname"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respond(c, 1, "请求参数错误", nil)
+		return
+	}
+	if err := updateUser(id, req.Nickname, req.Password); err != nil {
+		respond(c, 1, err.Error(), nil)
+		return
+	}
+	respond(c, 0, "ok", nil)
+}
+
+func handleAdminUserDelete(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的用户ID", nil)
+		return
+	}
+	if err := deleteUserByID(id); err != nil {
+		respond(c, 1, err.Error(), nil)
+		return
+	}
 	respond(c, 0, "ok", nil)
 }
 

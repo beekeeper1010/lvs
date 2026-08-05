@@ -27,6 +27,7 @@
         />
       </div>
 
+      <p v-if="notice" class="notice">{{ notice }}</p>
       <p v-if="error" class="error">{{ error }}</p>
 
       <button class="submit" type="submit" :disabled="loading">
@@ -39,14 +40,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { login } from '../api'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const notice = ref(route.query.msg || '')
 
 async function onLogin() {
   if (!username.value || !password.value) {
@@ -57,7 +62,7 @@ async function onLogin() {
   error.value = ''
   try {
     const data = await login(username.value, password.value)
-    localStorage.setItem('token', data.token)
+    userStore.setLogin(data)
     router.push('/gallery')
   } catch (e) {
     error.value = e.message || '登录失败'
@@ -196,6 +201,12 @@ async function onLogin() {
 
 .error {
   color: var(--danger);
+  font-size: 13px;
+  margin: 4px 0 14px;
+  text-align: center;
+}
+.notice {
+  color: #34d399;
   font-size: 13px;
   margin: 4px 0 14px;
   text-align: center;

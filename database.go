@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -17,8 +18,8 @@ var (
 	jwtSecret []byte
 )
 
-// createDB 创建数据库文件、建表、内置账号并生成 JWT secret
-func createDB(dbPath, username, password string) error {
+// createDB 创建数据库文件、建表、内置 admin 账号并生成 JWT secret
+func createDB(dbPath, password string) error {
 	if _, err := os.Stat(dbPath); err == nil {
 		return fmt.Errorf("数据库 %q 已存在", dbPath)
 	}
@@ -35,8 +36,8 @@ func createDB(dbPath, username, password string) error {
 		return err
 	}
 	if _, err := d.Exec(
-		`INSERT INTO users(username, password, role, created_at) VALUES(?, ?, 'admin', ?)`,
-		username, string(hash), time.Now()); err != nil {
+		`INSERT INTO users(username, password, nickname, role, created_at) VALUES('admin', ?, '管理员', 'admin', ?)`,
+		string(hash), time.Now()); err != nil {
 		return err
 	}
 	if _, err := d.Exec(
@@ -58,8 +59,14 @@ func openDB(dbPath string) error {
 		return err
 	}
 	db.SetMaxOpenConns(1) // sqlite 单写者，限制并发连接
-	// 迁移：旧库补充 role 列，并确保 admin 为管理员
-	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`)
+	// 幂等补齐历史缺失列（已存在的列忽略错误），兼容旧库
+	for _, stmt := range []string{
+		`ALTER TABLE users ADD COLUMN nickname TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`,
+		`ALTER TABLE users ADD COLUMN pwd_ver INTEGER NOT NULL DEFAULT 0`,
+	} {
+		_, _ = db.Exec(stmt)
+	}
 	_, _ = db.Exec(`UPDATE users SET role = 'admin' WHERE username = 'admin'`)
 	var s string
 	if err := db.QueryRow(`SELECT value FROM settings WHERE key='jwt_secret'`).Scan(&s); err != nil {
@@ -75,7 +82,9 @@ func createTables(d *sql.DB) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
+			nickname TEXT NOT NULL DEFAULT '',
 			role TEXT NOT NULL DEFAULT 'user',
+			pwd_ver INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS videos (
@@ -98,44 +107,106 @@ func createTables(d *sql.DB) error {
 	return nil
 }
 
-// upsertUser 创建用户或更新密码, 返回是否新建。admin 用户名创建即为管理员
-func upsertUser(username, password string) (bool, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return false, err
-	}
+// upsertUser 创建或更新用户。创建时须指定密码；更新时仅更新显式指定的字段（setPassword/setNickname）。
+// 返回是否新建。admin 用户名创建即为管理员
+func upsertUser(username, password, nickname string, setPassword, setNickname bool) (bool, error) {
 	var count int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&count); err != nil {
 		return false, err
 	}
 	created := count == 0
 	if created {
+		if !setPassword {
+			return false, fmt.Errorf("创建用户必须设置密码")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return false, err
+		}
+		if !setNickname || nickname == "" {
+			nickname = username
+		}
 		role := "user"
 		if username == "admin" {
 			role = "admin"
 		}
-		_, err = db.Exec(`INSERT INTO users(username, password, role, created_at) VALUES(?, ?, ?, ?)`,
-			username, string(hash), role, time.Now())
-	} else {
-		_, err = db.Exec(`UPDATE users SET password = ? WHERE username = ?`, string(hash), username)
+		_, err = db.Exec(`INSERT INTO users(username, password, nickname, role, created_at) VALUES(?, ?, ?, ?, ?)`,
+			username, string(hash), nickname, role, time.Now())
+		return true, err
 	}
+	// 更新：仅拼接指定字段
+	parts := make([]string, 0, 3)
+	args := make([]any, 0, 2)
+	if setPassword {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return false, err
+		}
+		parts = append(parts, `password = ?`)
+		args = append(args, string(hash))
+		parts = append(parts, `pwd_ver = pwd_ver + 1`) // 改密使旧 token 失效
+	}
+	if setNickname {
+		parts = append(parts, `nickname = ?`)
+		args = append(args, nickname)
+	}
+	_, err := db.Exec(`UPDATE users SET `+strings.Join(parts, ", ")+` WHERE username = ?`,
+		append(args, username)...)
+	return false, err
+}
+
+// createUser 创建用户（用户名重复时返回错误）
+func createUser(username, password, nickname string) error {
+	if nickname == "" {
+		nickname = username
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return created, nil
+	role := "user"
+	if username == "admin" {
+		role = "admin"
+	}
+	_, err = db.Exec(`INSERT INTO users(username, password, nickname, role, created_at) VALUES(?, ?, ?, ?, ?)`,
+		username, string(hash), nickname, role, time.Now())
+	if err != nil {
+		return fmt.Errorf("创建用户失败: %w", err)
+	}
+	return nil
+}
+
+// updateUser 按 id 更新昵称, 密码非空时同时更新密码
+func updateUser(id int64, nickname, password string) error {
+	// 昵称为空时不覆盖原值
+	update := `UPDATE users SET nickname = CASE WHEN ? = '' THEN nickname ELSE ? END`
+	args := []any{nickname, nickname}
+	if password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		update += `, password = ?, pwd_ver = pwd_ver + 1` // 改密使旧 token 失效
+		args = append(args, string(hash))
+	}
+	update += ` WHERE id = ?`
+	args = append(args, id)
+	_, err := db.Exec(update, args...)
+	return err
 }
 
 // userInfo 用户列表项
 type userInfo struct {
-	ID        int64
-	Username  string
-	Role      string
-	CreatedAt string
+	ID        int64  `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
 }
 
 // listUsers 查询全部用户
 func listUsers() ([]userInfo, error) {
-	rows, err := db.Query(`SELECT id, username, role, created_at FROM users ORDER BY id`)
+	rows, err := db.Query(`SELECT id, username, nickname, role, created_at FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +215,7 @@ func listUsers() ([]userInfo, error) {
 	for rows.Next() {
 		var u userInfo
 		var created time.Time
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &created); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Role, &created); err != nil {
 			return nil, err
 		}
 		u.CreatedAt = created.Format("2006-01-02 15:04:05")
@@ -153,7 +224,7 @@ func listUsers() ([]userInfo, error) {
 	return list, rows.Err()
 }
 
-// deleteUser 删除用户, 至少保留一个账号
+// deleteUser 删除用户, 管理员不可删且至少保留一个账号
 func deleteUser(username string) error {
 	var count int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
@@ -162,12 +233,37 @@ func deleteUser(username string) error {
 	if count <= 1 {
 		return fmt.Errorf("至少保留一个用户, 删除被拒绝")
 	}
-	res, err := db.Exec(`DELETE FROM users WHERE username = ?`, username)
-	if err != nil {
+	var role string
+	if err := db.QueryRow(`SELECT role FROM users WHERE username = ?`, username).Scan(&role); err != nil {
+		return fmt.Errorf("用户 %q 不存在", username)
+	}
+	if role == "admin" {
+		return fmt.Errorf("管理员账号不可删除")
+	}
+	if _, err := db.Exec(`DELETE FROM users WHERE username = ?`, username); err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("用户 %q 不存在", username)
+	return nil
+}
+
+// deleteUserByID 按 id 删除用户（API 用），管理员不可删且至少保留一个账号
+func deleteUserByID(id int64) error {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		return err
+	}
+	if count <= 1 {
+		return fmt.Errorf("至少保留一个用户, 删除被拒绝")
+	}
+	var role string
+	if err := db.QueryRow(`SELECT role FROM users WHERE id = ?`, id).Scan(&role); err != nil {
+		return fmt.Errorf("用户不存在")
+	}
+	if role == "admin" {
+		return fmt.Errorf("管理员账号不可删除")
+	}
+	if _, err := db.Exec(`DELETE FROM users WHERE id = ?`, id); err != nil {
+		return err
 	}
 	return nil
 }

@@ -29,9 +29,19 @@ func startServer(port int, dbPath string) {
 	authed := api.Group("")
 	authed.Use(authMiddleware())
 	authed.POST("/logout", handleLogout)
+	authed.GET("/user/info", handleUserInfo)
+	authed.PUT("/user/profile", handleUserProfile)
 	authed.GET("/video/list", handleVideoList)
 	authed.GET("/video/play", handleVideoPlay)
 	authed.GET("/video/thumb", handleVideoThumb)
+
+	// 用户管理（仅 admin）
+	admin := authed.Group("")
+	admin.Use(adminAuthMiddleware())
+	admin.GET("/admin/users", handleAdminUsers)
+	admin.POST("/admin/users", handleAdminUserCreate)
+	admin.PUT("/admin/users/:id", handleAdminUserUpdate)
+	admin.DELETE("/admin/users/:id", handleAdminUserDelete)
 
 	// 嵌入的前端静态资源与 SPA fallback
 	if sub, err := fs.Sub(webFS, "web/dist"); err == nil {

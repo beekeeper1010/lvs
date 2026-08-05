@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ var (
 	dbPath    string
 	username  string
 	password  string
+	nickname  string
 	scanDir   string
 	thumbsDir string
 )
@@ -29,17 +31,17 @@ var rootCmd = &cobra.Command{
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "初始化数据库并创建登录账号",
+	Short: "初始化数据库并创建管理员账号",
 	Run: func(cmd *cobra.Command, args []string) {
-		if username == "" || password == "" {
-			fmt.Println("用法: lvs init --username <用户名> --password <密码> [--db <路径>]")
+		if password == "" {
+			fmt.Println("用法: lvs init -p <密码> [-d <数据库>]")
 			os.Exit(1)
 		}
-		if err := createDB(dbPath, username, password); err != nil {
+		if err := createDB(dbPath, password); err != nil {
 			fmt.Println("init 失败:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("初始化完成: 数据库 %s, 账号 %q\n", dbPath, username)
+		fmt.Printf("初始化完成: 数据库 %s, 管理员账号 \"admin\"\n", dbPath)
 	},
 }
 
@@ -80,8 +82,14 @@ var userUpsertCmd = &cobra.Command{
 	Use:   "upsert",
 	Short: "创建用户或修改密码",
 	Run: func(cmd *cobra.Command, args []string) {
-		if username == "" || password == "" {
-			fmt.Println("用法: lvs user upsert -u <用户名> -p <密码> [-d <数据库>]")
+		if username == "" {
+			fmt.Println("用法: lvs user upsert -u <用户名> (-p <密码> | -n <昵称> | 两者) [-d <数据库>]")
+			os.Exit(1)
+		}
+		setPassword := cmd.Flags().Changed("password")
+		setNickname := cmd.Flags().Changed("nickname")
+		if !setPassword && !setNickname {
+			fmt.Println("错误: 至少要指定 -p <密码> 或 -n <昵称> 之一")
 			os.Exit(1)
 		}
 		if err := openDB(dbPath); err != nil {
@@ -89,7 +97,7 @@ var userUpsertCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		defer db.Close()
-		created, err := upsertUser(username, password)
+		created, err := upsertUser(username, password, nickname, setPassword, setNickname)
 		if err != nil {
 			fmt.Println("操作失败:", err)
 			os.Exit(1)
@@ -97,7 +105,14 @@ var userUpsertCmd = &cobra.Command{
 		if created {
 			fmt.Printf("用户 %q 已创建\n", username)
 		} else {
-			fmt.Printf("用户 %q 密码已更新\n", username)
+			changed := make([]string, 0, 2)
+			if setPassword {
+				changed = append(changed, "密码")
+			}
+			if setNickname {
+				changed = append(changed, "昵称")
+			}
+			fmt.Printf("用户 %q 的%s已更新\n", username, strings.Join(changed, "、"))
 		}
 	},
 }
@@ -138,9 +153,9 @@ var userListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(w, "ID\t用户名\t角色\t创建时间")
+		fmt.Fprintln(w, "ID\t用户名\t昵称\t角色\t创建时间")
 		for _, u := range users {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", u.ID, u.Username, u.Role, u.CreatedAt)
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", u.ID, u.Username, u.Nickname, u.Role, u.CreatedAt)
 		}
 		w.Flush()
 	},
@@ -149,12 +164,12 @@ var userListCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&port, "port", "P", 8900, "监听端口")
 	rootCmd.PersistentFlags().StringVarP(&dbPath, "db", "d", "lvs.db", "sqlite 数据库文件路径")
-	initCmd.Flags().StringVarP(&username, "username", "u", "", "登录用户名")
-	initCmd.Flags().StringVarP(&password, "password", "p", "", "登录密码")
+	initCmd.Flags().StringVarP(&password, "password", "p", "", "管理员密码")
 	scanCmd.Flags().StringVarP(&scanDir, "dir", "D", "", "要扫描的视频目录")
 	scanCmd.Flags().StringVarP(&thumbsDir, "thumbs", "t", "data/thumbs", "缩略图输出目录")
 	userUpsertCmd.Flags().StringVarP(&username, "username", "u", "", "用户名")
 	userUpsertCmd.Flags().StringVarP(&password, "password", "p", "", "密码")
+	userUpsertCmd.Flags().StringVarP(&nickname, "nickname", "n", "", "昵称")
 	userDelCmd.Flags().StringVarP(&username, "username", "u", "", "用户名")
 	userCmd.AddCommand(userUpsertCmd, userDelCmd, userListCmd)
 	rootCmd.AddCommand(initCmd, scanCmd, serveCmd, userCmd)
