@@ -6,23 +6,31 @@
     <div class="lights"></div>
 
     <header class="topbar">
-      <el-button class="back-btn" @click="goBack">
-        ← 返回
-      </el-button>
-      <h2 class="title" :title="videoName">{{ videoName || '播放中' }}</h2>
+      <h2 class="title" :class="{ hidden: !showTitle }" :title="videoName">
+        {{ videoName || '播放中' }}
+      </h2>
+      <el-button class="back-btn" @click="goBack">← 返回广场</el-button>
     </header>
 
-    <div class="video-wrap">
+    <div class="video-wrap" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
+      <button class="nav-btn nav-prev" :disabled="!adjacent.prev" :title="adjacent.prev ? '上一个' : ''" @click="goPrev">
+        <el-icon :size="24"><ArrowLeft /></el-icon>
+      </button>
       <div class="video-frame">
-        <video :src="playUrl" controls autoplay playsinline></video>
+        <video :key="route.params.id" :src="playUrl" controls autoplay playsinline @play="onVideoPlay"></video>
       </div>
+      <button class="nav-btn nav-next" :disabled="!adjacent.next" :title="adjacent.next ? '下一个' : ''" @click="goNext">
+        <el-icon :size="24"><ArrowRight /></el-icon>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { fetchAdjacent } from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,15 +43,80 @@ try {
 }
 
 const videoName = computed(() => video.value?.name || '')
+const adjacent = ref({ prev: null, next: null })
+const showTitle = ref(false)
+let hideTimer = null
+let hovering = false
+let forcedUntil = 0 // 播放后强制显示标题的截止时间戳
 
 // video 标签无法携带 Authorization 头, token 通过 query 传递
 const playUrl = computed(
   () => `/api/video/play?id=${route.params.id}&token=${localStorage.getItem('token')}`
 )
 
+// 加载上一个/下一个视频
+async function loadAdjacent() {
+  try {
+    adjacent.value = await fetchAdjacent(route.params.id)
+  } catch (e) {
+    adjacent.value = { prev: null, next: null }
+  }
+}
+
+function switchTo(v) {
+  if (!v) return
+  sessionStorage.setItem('lvs_video', JSON.stringify(v))
+  video.value = v
+  router.replace(`/play/${v.id}`)
+}
+
+function goPrev() {
+  switchTo(adjacent.value.prev)
+}
+
+function goNext() {
+  switchTo(adjacent.value.next)
+}
+
+// 开始播放时显示标题，3 秒后自动隐藏（强制显示期内不因鼠标离开而隐藏）
+function onVideoPlay() {
+  clearTimeout(hideTimer)
+  showTitle.value = true
+  forcedUntil = Date.now() + 3000
+  hideTimer = setTimeout(() => {
+    if (!hovering) showTitle.value = false
+  }, 3000)
+}
+
+// 鼠标进入播放器时显示标题
+function onMouseEnter() {
+  hovering = true
+  clearTimeout(hideTimer)
+  showTitle.value = true
+}
+
+function onMouseLeave() {
+  hovering = false
+  clearTimeout(hideTimer)
+  if (Date.now() < forcedUntil) {
+    // 仍处于播放后强制显示期：到期后再隐藏
+    hideTimer = setTimeout(() => {
+      showTitle.value = false
+    }, forcedUntil - Date.now())
+  } else {
+    showTitle.value = false
+  }
+}
+
 function goBack() {
   router.push('/gallery')
 }
+
+watch(() => route.params.id, loadAdjacent, { immediate: true })
+
+onUnmounted(() => {
+  clearTimeout(hideTimer)
+})
 </script>
 
 <style scoped>
@@ -110,7 +183,7 @@ function goBack() {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: flex-end;
   padding: 14px 28px;
 }
 .back-btn {
@@ -126,14 +199,21 @@ function goBack() {
   color: #fff;
 }
 .title {
-  flex: 1;
-  min-width: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 55%;
   font-size: 16px;
   font-weight: 600;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+.title.hidden {
+  opacity: 0;
 }
 
 .video-wrap {
@@ -168,5 +248,40 @@ video {
   background: #000;
   max-height: 82vh;
   outline: none;
+}
+
+/* 上一集/下一集切换按钮 */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s;
+  z-index: 5;
+}
+.nav-prev {
+  left: -118px;
+}
+.nav-next {
+  right: -118px;
+}
+.nav-btn:hover:not(:disabled) {
+  background: rgba(124, 92, 255, 0.4);
+  border-color: rgba(124, 92, 255, 0.6);
+}
+.nav-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 </style>

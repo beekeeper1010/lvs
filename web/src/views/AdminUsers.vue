@@ -9,10 +9,7 @@
         </div>
         <span class="brand-name">LVS</span>
       </div>
-      <div class="actions">
-        <el-button @click="$router.push('/gallery')">← 返回广场</el-button>
-        <el-button @click="onLogout">注销</el-button>
-      </div>
+      <el-button @click="$router.push('/gallery')">← 返回广场</el-button>
     </header>
 
     <section class="head">
@@ -88,14 +85,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { fetchUsers, createUser, updateUser, deleteUser, logout } from '../api'
-import { useUserStore } from '../stores/user'
+import { fetchUsers, createUser, updateUser, deleteUser } from '../api'
 
-const router = useRouter()
-const userStore = useUserStore()
 const users = ref([])
 const loading = ref(false)
 
@@ -178,16 +171,6 @@ async function onDelete(u) {
   } catch (e) {
     ElMessage.error(e.message || '删除失败')
   }
-}
-
-async function onLogout() {
-  try {
-    await logout()
-  } catch (e) {
-    /* ignore */
-  }
-  userStore.logout()
-  router.push('/login')
 }
 
 onMounted(load)

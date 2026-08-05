@@ -124,7 +124,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, UserFilled, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { fetchVideos, fetchUserInfo, updateProfile, logout } from '../api'
 import { useUserStore } from '../stores/user'
@@ -234,6 +234,15 @@ function changePage(p) {
 }
 
 async function onLogout() {
+  try {
+    await ElMessageBox.confirm('确定要注销当前账号吗？', '注销确认', {
+      confirmButtonText: '注销',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch (e) {
+    return // 用户取消
+  }
   try {
     await logout()
   } catch (e) {

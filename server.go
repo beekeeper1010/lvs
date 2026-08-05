@@ -34,6 +34,7 @@ func startServer(port int, dbPath string) {
 	authed.GET("/video/list", handleVideoList)
 	authed.GET("/video/play", handleVideoPlay)
 	authed.GET("/video/thumb", handleVideoThumb)
+	authed.GET("/video/adjacent", handleVideoAdjacent)
 
 	// 用户管理（仅 admin）
 	admin := authed.Group("")

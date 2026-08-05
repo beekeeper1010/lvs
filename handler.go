@@ -256,6 +256,38 @@ func handleVideoPlay(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, filepath.Base(path), st.ModTime(), f)
 }
 
+// handleVideoAdjacent 返回指定视频的前一个与后一个（按 id 排序），用于播放页切换
+func handleVideoAdjacent(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Query("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的视频ID", nil)
+		return
+	}
+	type item struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	var (
+		prev *item
+		next *item
+	)
+	var (
+		pid int64
+		pn  string
+	)
+	if err := db.QueryRow(`SELECT id, name FROM videos WHERE id < ? ORDER BY id DESC LIMIT 1`, id).Scan(&pid, &pn); err == nil {
+		prev = &item{pid, pn}
+	}
+	var (
+		nid int64
+		nn  string
+	)
+	if err := db.QueryRow(`SELECT id, name FROM videos WHERE id > ? ORDER BY id ASC LIMIT 1`, id).Scan(&nid, &nn); err == nil {
+		next = &item{nid, nn}
+	}
+	respond(c, 0, "ok", gin.H{"prev": prev, "next": next})
+}
+
 func handleVideoThumb(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Query("id"), 10, 64)
 	if id <= 0 {
