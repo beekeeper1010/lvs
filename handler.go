@@ -28,18 +28,19 @@ func handleLogin(c *gin.Context) {
 	var (
 		id   int64
 		hash string
+		role string
 	)
-	err := db.QueryRow(`SELECT id, password FROM users WHERE username = ?`, req.Username).Scan(&id, &hash)
+	err := db.QueryRow(`SELECT id, password, role FROM users WHERE username = ?`, req.Username).Scan(&id, &hash, &role)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
 		respond(c, 1, "用户名或密码错误", nil)
 		return
 	}
-	token, err := generateToken(id, req.Username)
+	token, err := generateToken(id, req.Username, role)
 	if err != nil {
 		respond(c, 1, "登录失败", nil)
 		return
 	}
-	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username})
+	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "role": role})
 }
 
 // handleLogout 由前端删除本地 token，服务端仅返回成功

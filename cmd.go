@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -70,6 +71,81 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+var userCmd = &cobra.Command{
+	Use:   "user",
+	Short: "用户管理",
+}
+
+var userUpsertCmd = &cobra.Command{
+	Use:   "upsert",
+	Short: "创建用户或修改密码",
+	Run: func(cmd *cobra.Command, args []string) {
+		if username == "" || password == "" {
+			fmt.Println("用法: lvs user upsert -u <用户名> -p <密码> [-d <数据库>]")
+			os.Exit(1)
+		}
+		if err := openDB(dbPath); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer db.Close()
+		created, err := upsertUser(username, password)
+		if err != nil {
+			fmt.Println("操作失败:", err)
+			os.Exit(1)
+		}
+		if created {
+			fmt.Printf("用户 %q 已创建\n", username)
+		} else {
+			fmt.Printf("用户 %q 密码已更新\n", username)
+		}
+	},
+}
+
+var userDelCmd = &cobra.Command{
+	Use:   "del",
+	Short: "删除用户",
+	Run: func(cmd *cobra.Command, args []string) {
+		if username == "" {
+			fmt.Println("用法: lvs user del -u <用户名> [-d <数据库>]")
+			os.Exit(1)
+		}
+		if err := openDB(dbPath); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer db.Close()
+		if err := deleteUser(username); err != nil {
+			fmt.Println("操作失败:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("用户 %q 已删除\n", username)
+	},
+}
+
+var userListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "查询用户列表",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := openDB(dbPath); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer db.Close()
+		users, err := listUsers()
+		if err != nil {
+			fmt.Println("查询失败:", err)
+			os.Exit(1)
+		}
+		w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
+		fmt.Fprintln(w, "ID\t用户名\t角色\t创建时间")
+		for _, u := range users {
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", u.ID, u.Username, u.Role, u.CreatedAt)
+		}
+		w.Flush()
+	},
+}
+
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&port, "port", "P", 8900, "监听端口")
 	rootCmd.PersistentFlags().StringVarP(&dbPath, "db", "d", "lvs.db", "sqlite 数据库文件路径")
@@ -77,5 +153,9 @@ func init() {
 	initCmd.Flags().StringVarP(&password, "password", "p", "", "登录密码")
 	scanCmd.Flags().StringVarP(&scanDir, "dir", "D", "", "要扫描的视频目录")
 	scanCmd.Flags().StringVarP(&thumbsDir, "thumbs", "t", "data/thumbs", "缩略图输出目录")
-	rootCmd.AddCommand(initCmd, scanCmd, serveCmd)
+	userUpsertCmd.Flags().StringVarP(&username, "username", "u", "", "用户名")
+	userUpsertCmd.Flags().StringVarP(&password, "password", "p", "", "密码")
+	userDelCmd.Flags().StringVarP(&username, "username", "u", "", "用户名")
+	userCmd.AddCommand(userUpsertCmd, userDelCmd, userListCmd)
+	rootCmd.AddCommand(initCmd, scanCmd, serveCmd, userCmd)
 }

@@ -35,7 +35,7 @@ func createDB(dbPath, username, password string) error {
 		return err
 	}
 	if _, err := d.Exec(
-		`INSERT INTO users(username, password, created_at) VALUES(?, ?, ?)`,
+		`INSERT INTO users(username, password, role, created_at) VALUES(?, ?, 'admin', ?)`,
 		username, string(hash), time.Now()); err != nil {
 		return err
 	}
@@ -58,6 +58,9 @@ func openDB(dbPath string) error {
 		return err
 	}
 	db.SetMaxOpenConns(1) // sqlite 单写者，限制并发连接
+	// 迁移：旧库补充 role 列，并确保 admin 为管理员
+	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`)
+	_, _ = db.Exec(`UPDATE users SET role = 'admin' WHERE username = 'admin'`)
 	var s string
 	if err := db.QueryRow(`SELECT value FROM settings WHERE key='jwt_secret'`).Scan(&s); err != nil {
 		return fmt.Errorf("读取 jwt_secret 失败: %w", err)
@@ -72,6 +75,7 @@ func createTables(d *sql.DB) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
+			role TEXT NOT NULL DEFAULT 'user',
 			created_at DATETIME NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS videos (
@@ -90,6 +94,80 @@ func createTables(d *sql.DB) error {
 		if _, err := d.Exec(s); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// upsertUser 创建用户或更新密码, 返回是否新建。admin 用户名创建即为管理员
+func upsertUser(username, password string) (bool, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return false, err
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&count); err != nil {
+		return false, err
+	}
+	created := count == 0
+	if created {
+		role := "user"
+		if username == "admin" {
+			role = "admin"
+		}
+		_, err = db.Exec(`INSERT INTO users(username, password, role, created_at) VALUES(?, ?, ?, ?)`,
+			username, string(hash), role, time.Now())
+	} else {
+		_, err = db.Exec(`UPDATE users SET password = ? WHERE username = ?`, string(hash), username)
+	}
+	if err != nil {
+		return false, err
+	}
+	return created, nil
+}
+
+// userInfo 用户列表项
+type userInfo struct {
+	ID        int64
+	Username  string
+	Role      string
+	CreatedAt string
+}
+
+// listUsers 查询全部用户
+func listUsers() ([]userInfo, error) {
+	rows, err := db.Query(`SELECT id, username, role, created_at FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := make([]userInfo, 0)
+	for rows.Next() {
+		var u userInfo
+		var created time.Time
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &created); err != nil {
+			return nil, err
+		}
+		u.CreatedAt = created.Format("2006-01-02 15:04:05")
+		list = append(list, u)
+	}
+	return list, rows.Err()
+}
+
+// deleteUser 删除用户, 至少保留一个账号
+func deleteUser(username string) error {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		return err
+	}
+	if count <= 1 {
+		return fmt.Errorf("至少保留一个用户, 删除被拒绝")
+	}
+	res, err := db.Exec(`DELETE FROM users WHERE username = ?`, username)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("用户 %q 不存在", username)
 	}
 	return nil
 }
