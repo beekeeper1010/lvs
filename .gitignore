@@ -1,0 +1,20 @@
+# 构建产物
+lvs
+lvs.exe
+
+# 数据库与运行时数据
+*.db
+data/
+
+# 前端构建产物与依赖
+web/node_modules/
+web/dist/
+
+# 日志
+*.log
+
+# 系统与 IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
