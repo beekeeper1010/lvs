@@ -4,7 +4,7 @@
     <div class="orb orb-2"></div>
     <div class="grid-overlay"></div>
 
-    <form class="login-card" @submit.prevent="onLogin">
+    <el-form class="login-card" @submit.prevent="onLogin">
       <div class="brand">
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -15,32 +15,41 @@
         <p class="brand-sub">LOCAL VIDEO SERVICE</p>
       </div>
 
-      <div class="field">
-        <input v-model.trim="username" placeholder="用户名" autocomplete="username" />
-      </div>
-      <div class="field">
-        <input
+      <el-form-item>
+        <el-input
+          v-model.trim="username"
+          placeholder="用户名"
+          size="large"
+          :prefix-icon="User"
+          clearable
+        />
+      </el-form-item>
+      <el-form-item>
+        <el-input
           v-model="password"
           type="password"
           placeholder="密码"
-          autocomplete="current-password"
+          size="large"
+          :prefix-icon="Lock"
+          show-password
+          @keyup.enter="onLogin"
         />
-      </div>
+      </el-form-item>
 
-      <p v-if="notice" class="notice">{{ notice }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
+      <el-alert v-if="notice" :title="notice" type="success" :closable="false" class="tip" />
+      <el-alert v-if="error" :title="error" type="error" :closable="false" class="tip" />
 
-      <button class="submit" type="submit" :disabled="loading">
-        <span v-if="loading" class="spinner-sm"></span>
-        <span>{{ loading ? '登录中' : '登 录' }}</span>
-      </button>
-    </form>
+      <el-button class="submit" type="primary" size="large" native-type="submit" :loading="loading">
+        登 录
+      </el-button>
+    </el-form>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { User, Lock } from '@element-plus/icons-vue'
 import { login } from '../api'
 import { useUserStore } from '../stores/user'
 
@@ -133,7 +142,7 @@ async function onLogin() {
   z-index: 1;
   width: 380px;
   max-width: 100%;
-  padding: 44px 40px 40px;
+  padding: 44px 40px 36px;
   background: rgba(19, 20, 28, 0.72);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -142,10 +151,20 @@ async function onLogin() {
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   animation: fadeUp 0.5s ease both;
 }
+.login-card :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+.login-card :deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+.login-card :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 4px rgba(124, 92, 255, 0.16);
+}
 
 .brand {
   text-align: center;
-  margin-bottom: 34px;
+  margin-bottom: 30px;
 }
 .brand-icon {
   width: 58px;
@@ -176,70 +195,24 @@ async function onLogin() {
   color: var(--text-3);
 }
 
-.field {
+.tip {
   margin-bottom: 16px;
-}
-.field input {
-  width: 100%;
-  padding: 13px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-}
-.field input::placeholder {
-  color: var(--text-3);
-}
-.field input:focus {
-  border-color: rgba(124, 92, 255, 0.7);
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.16);
-}
-
-.error {
-  color: var(--danger);
-  font-size: 13px;
-  margin: 4px 0 14px;
-  text-align: center;
-}
-.notice {
-  color: #34d399;
-  font-size: 13px;
-  margin: 4px 0 14px;
-  text-align: center;
+  border-radius: 8px;
 }
 
 .submit {
   width: 100%;
   height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  border-radius: 12px;
-  background: var(--grad);
-  color: #fff;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 4px;
   text-indent: 4px;
-  cursor: pointer;
+  border: none;
   box-shadow: 0 10px 28px rgba(124, 92, 255, 0.35);
-  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  transition: transform 0.15s, box-shadow 0.2s;
 }
-.submit:hover:not(:disabled) {
+.submit:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 36px rgba(124, 92, 255, 0.5);
-}
-.submit:active:not(:disabled) {
-  transform: translateY(0);
-}
-.submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 </style>

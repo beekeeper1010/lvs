@@ -6,13 +6,9 @@
     <div class="lights"></div>
 
     <header class="topbar">
-      <button class="back-btn" @click="goBack">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5" />
-          <path d="M12 19l-7-7 7-7" />
-        </svg>
-        返回
-      </button>
+      <el-button class="back-btn" @click="goBack">
+        ← 返回
+      </el-button>
       <h2 class="title" :title="videoName">{{ videoName || '播放中' }}</h2>
     </header>
 
@@ -118,23 +114,16 @@ function goBack() {
   padding: 14px 28px;
 }
 .back-btn {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 18px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.35);
   color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 .back-btn:hover {
   background: rgba(124, 92, 255, 0.35);
   border-color: rgba(124, 92, 255, 0.6);
+  color: #fff;
 }
 .title {
   flex: 1;
