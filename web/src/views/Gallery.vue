@@ -63,6 +63,16 @@
               <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
             </svg>
           </div>
+          <el-button
+            v-if="userStore.isAdmin"
+            class="del-btn"
+            size="small"
+            circle
+            type="danger"
+            plain
+            :icon="Delete"
+            @click.stop="onDelete(v)"
+          />
         </div>
         <div class="meta">
           <div class="name" :title="v.name">{{ v.name }}</div>
@@ -125,8 +135,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, UserFilled, Setting, SwitchButton } from '@element-plus/icons-vue'
-import { fetchVideos, fetchUserInfo, updateProfile, logout } from '../api'
+import { ArrowDown, UserFilled, Setting, SwitchButton, Delete } from '@element-plus/icons-vue'
+import { fetchVideos, fetchUserInfo, updateProfile, deleteVideo, logout } from '../api'
 import { useUserStore } from '../stores/user'
 
 const router = useRouter()
@@ -231,6 +241,27 @@ function changePage(p) {
   page.value = p
   load()
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// 删除视频（仅移除库记录与缩略图，不删除源文件）
+async function onDelete(v) {
+  try {
+    await ElMessageBox.confirm(`确定删除视频 "${v.name}" 吗？\n仅移除视频库记录，不会删除源文件。`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch (e) {
+    return // 取消
+  }
+  try {
+    await deleteVideo(v.id)
+    ElMessage.success('视频已删除')
+    if (videos.value.length === 1 && page.value > 1) page.value -= 1
+    load()
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  }
 }
 
 async function onLogout() {
@@ -424,6 +455,17 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.28);
+}
+.del-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.card:hover .del-btn {
+  opacity: 1;
 }
 .shade {
   position: absolute;

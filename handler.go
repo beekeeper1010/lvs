@@ -256,6 +256,29 @@ func handleVideoPlay(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, filepath.Base(path), st.ModTime(), f)
 }
 
+// handleVideoDelete 删除视频数据库记录与缩略图（不删除源视频文件），仅 admin
+func handleVideoDelete(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的视频ID", nil)
+		return
+	}
+	var thumb string
+	if err := db.QueryRow(`SELECT thumb_path FROM videos WHERE id = ?`, id).Scan(&thumb); err != nil {
+		respond(c, 1, "视频不存在", nil)
+		return
+	}
+	if _, err := db.Exec(`DELETE FROM videos WHERE id = ?`, id); err != nil {
+		respond(c, 1, "删除失败", nil)
+		return
+	}
+	// 清理缩略图文件（衍生产物），源视频文件保留
+	if thumb != "" {
+		_ = os.Remove(thumb)
+	}
+	respond(c, 0, "ok", nil)
+}
+
 // handleVideoAdjacent 返回指定视频的前一个与后一个（按 id 排序），用于播放页切换
 func handleVideoAdjacent(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Query("id"), 10, 64)

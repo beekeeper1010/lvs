@@ -43,6 +43,7 @@ func startServer(port int, dbPath string) {
 	admin.POST("/admin/users", handleAdminUserCreate)
 	admin.PUT("/admin/users/:id", handleAdminUserUpdate)
 	admin.DELETE("/admin/users/:id", handleAdminUserDelete)
+	admin.DELETE("/video/:id", handleVideoDelete)
 
 	// 嵌入的前端静态资源与 SPA fallback
 	if sub, err := fs.Sub(webFS, "web/dist"); err == nil {

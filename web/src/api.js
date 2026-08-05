@@ -35,6 +35,7 @@ export const fetchUserInfo = () => api.get('/user/info')
 export const updateProfile = (data) => api.put('/user/profile', data)
 export const fetchVideos = (page, pageSize) => api.get('/video/list', { params: { page, pageSize } })
 export const fetchAdjacent = (id) => api.get('/video/adjacent', { params: { id } })
+export const deleteVideo = (id) => api.delete(`/video/${id}`)
 
 // 用户管理（仅 admin）
 export const fetchUsers = () => api.get('/admin/users')
