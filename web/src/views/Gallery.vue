@@ -86,7 +86,7 @@
     </footer>
 
     <!-- 用户设置弹窗 -->
-    <el-dialog v-model="showSettings" title="用户设置" width="420px" align-center>
+    <el-dialog v-model="showSettings" title="用户设置" width="420px" align-center append-to-body>
       <el-form label-position="top">
         <el-form-item label="头像">
           <el-upload

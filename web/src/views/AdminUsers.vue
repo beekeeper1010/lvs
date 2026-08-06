@@ -58,6 +58,7 @@
       :title="editing ? '编辑用户' : '新增用户'"
       width="420px"
       align-center
+      append-to-body
     >
       <el-form label-position="top">
         <el-form-item label="头像">
