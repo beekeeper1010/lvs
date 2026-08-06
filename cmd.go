@@ -64,9 +64,7 @@ var scanCmd = &cobra.Command{
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "启动服务",
-	Run: func(cmd *cobra.Command, args []string) {
-		startServer(port, dbPath)
-	},
+	Run:   rootCmd.Run, // 无子命令的 root 与 serve 等价
 }
 
 func init() {

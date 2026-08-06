@@ -7,9 +7,7 @@
     <el-form class="login-card" @submit.prevent="onLogin">
       <div class="brand">
         <div class="brand-icon">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
-          </svg>
+          <PlayIcon :size="24" />
         </div>
         <div class="brand-name">LVS</div>
         <p class="brand-sub">LOCAL VIDEO SERVICE</p>
@@ -52,6 +50,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login } from '../api'
 import { useUserStore } from '../stores/user'
+import PlayIcon from '../components/PlayIcon.vue'
 
 const router = useRouter()
 const route = useRoute()

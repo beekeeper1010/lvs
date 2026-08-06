@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -271,7 +270,6 @@ type videoItem struct {
 	Path      string  `json:"path"`
 	ThumbPath string  `json:"thumb_path"`
 	Duration  float64 `json:"duration"`
-	CreatedAt string  `json:"created_at"`
 }
 
 func handleVideoList(c *gin.Context) {
@@ -292,7 +290,7 @@ func handleVideoList(c *gin.Context) {
 		return
 	}
 	rows, err := db.Query(
-		`SELECT id, name, path, thumb_path, duration, created_at FROM videos ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT id, name, path, thumb_path, duration FROM videos ORDER BY id DESC LIMIT ? OFFSET ?`,
 		pageSize, (page-1)*pageSize)
 	if err != nil {
 		respond(c, 1, "查询失败", nil)
@@ -302,11 +300,9 @@ func handleVideoList(c *gin.Context) {
 	list := make([]videoItem, 0, pageSize)
 	for rows.Next() {
 		var v videoItem
-		var created time.Time
-		if err := rows.Scan(&v.ID, &v.Name, &v.Path, &v.ThumbPath, &v.Duration, &created); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.Path, &v.ThumbPath, &v.Duration); err != nil {
 			continue
 		}
-		v.CreatedAt = created.Format("2006-01-02 15:04:05")
 		list = append(list, v)
 	}
 	if err := rows.Err(); err != nil {

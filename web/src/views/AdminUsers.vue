@@ -1,14 +1,7 @@
 <template>
   <div class="users-page">
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-badge">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
-          </svg>
-        </div>
-        <span class="brand-name">LVS</span>
-      </div>
+      <Brand />
       <el-button @click="$router.push('/gallery')">← 返回广场</el-button>
     </header>
 
@@ -108,6 +101,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { fetchUsers, createUser, updateUser, deleteUser, uploadUserAvatar, avatarUrl } from '../api'
+import Brand from '../components/Brand.vue'
 
 const users = ref([])
 const loading = ref(false)
@@ -234,37 +228,6 @@ onMounted(load)
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.brand-badge {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: var(--grad);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(124, 92, 255, 0.4);
-}
-.brand-name {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 4px;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .head {
   max-width: 1100px;
   margin: 0 auto;

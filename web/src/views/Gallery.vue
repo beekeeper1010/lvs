@@ -1,14 +1,7 @@
 <template>
   <div class="gallery-page">
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-badge">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
-          </svg>
-        </div>
-        <span class="brand-name">LVS</span>
-      </div>
+      <Brand />
       <div class="actions">
         <div class="user-chip" :title="userStore.username">
           <el-avatar :size="28" class="avatar" :src="myAvatarSrc">
@@ -55,15 +48,11 @@
         <div class="thumb">
           <el-image v-if="v.thumb_path" :src="thumbUrl(v)" fit="cover" lazy />
           <div v-else class="no-thumb">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
-              <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
-            </svg>
+            <PlayIcon :size="26" />
           </div>
           <div class="shade"></div>
           <div class="play-btn">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-              <path d="M8 5.14v13.72c0 .81.89 1.3 1.57.87l10.6-6.86a1.04 1.04 0 0 0 0-1.74L9.57 4.27A1.03 1.03 0 0 0 8 5.14z" />
-            </svg>
+            <PlayIcon :size="22" />
           </div>
           <el-button
             v-if="userStore.isAdmin"
@@ -162,6 +151,8 @@ import {
 } from '../api'
 import { useUserStore } from '../stores/user'
 import { useGalleryStore } from '../stores/gallery'
+import Brand from '../components/Brand.vue'
+import PlayIcon from '../components/PlayIcon.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -223,20 +214,22 @@ async function load() {
   }
 }
 
-function changePage(p) {
-  page.value = p
+// 重新加载并回到顶部（翻页/改每页条数共用）
+function reloadToTop() {
   load()
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function changePage(p) {
+  page.value = p
+  reloadToTop()
 }
 
 // 每页条数变更：回到第 1 页重新加载
 function onSizeChange(size) {
   pageSize.value = size
-  if (page.value !== 1) {
-    page.value = 1
-  }
-  load()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  page.value = 1
+  reloadToTop()
 }
 
 // 从服务端同步最新用户信息（昵称/头像可能已被修改）
@@ -387,31 +380,6 @@ onMounted(() => {
   background: rgba(11, 12, 17, 0.72);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.brand-badge {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: var(--grad);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(124, 92, 255, 0.4);
-}
-.brand-name {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 4px;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 .actions {
   display: flex;

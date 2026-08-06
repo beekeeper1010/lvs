@@ -4,11 +4,11 @@
 
 ## 功能特性
 
-- 内置账号登录（JWT 认证），无需注册/密码找回等用户管理
-- 递归扫描本地目录的 MP4 文件，用 ffmpeg 自动提取缩略图
-- 视频广场卡片式展示，分页浏览
+- 内置账号登录（JWT 认证），支持用户管理（admin 专属）与用户设置（改昵称/密码/头像）
+- 递归扫描本地目录的 MP4 文件，用 ffmpeg 自动提取缩略图并记录播放时长
+- 视频广场卡片式展示：文件名 + 播放时长，分页浏览，可切换每页条数（20/50/100）
 - 基于 H5 `<video>` 标签播放，支持 Range 分片下载（拖拽进度、跳播流畅）
-- 影院风格沉浸式播放页面
+- 影院风格沉浸式播放页面，支持上一集/下一集切换
 - 前端产物嵌入二进制，单文件即可部署运行
 
 ## 技术栈
@@ -16,7 +16,7 @@
 | 模块 | 技术 |
 | ---- | ---- |
 | 后端 | Go + Gin + JWT + SQLite（`modernc.org/sqlite` 纯 Go 驱动，无 CGO） |
-| 前端 | Vue3（组合式 API）+ Vite + vue-router + axios |
+| 前端 | Vue3（组合式 API）+ Vite + vue-router + Pinia + Element Plus + axios |
 
 ## 环境依赖
 
@@ -40,17 +40,17 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 ## 使用
 
 ```bash
-# 初始化：创建数据库并内置登录账号
-./lvs init --username admin --password 123456
-# 可选参数：--db <路径> 指定数据库文件位置（默认 ./lvs.db）
+# 初始化：创建数据库并内置 admin 管理员账号（密码由 -p 指定）
+./lvs init -p 123456
+# 可选参数：-d <路径> 指定数据库文件位置（默认 ./lvs.db）
 
-# 扫描视频：递归扫描目录及子目录的 mp4，提取缩略图入库
-./lvs scan --dir /path/to/videos
-# 可选参数：--db <路径>、--thumbs <缩略图目录>（默认 data/thumbs）
+# 扫描视频：递归扫描目录及子目录的 mp4，提取缩略图、记录播放时长并入库
+./lvs scan -D /path/to/videos
+# 可选参数：-d <路径>、-t <缩略图目录>（默认 data/thumbs）
 
 # 启动服务
 ./lvs            # 等价于 ./lvs serve
-./lvs serve --port 8900    # 指定端口（默认 8900）
+./lvs serve -P 8900    # 指定端口（默认 8900）
 ```
 
 启动后访问 `http://localhost:8900`。
@@ -65,9 +65,17 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 | ---- | ---- | ---- |
 | `/api/login` | POST | 登录，请求体 `{username, password}`，返回 JWT token |
 | `/api/logout` | POST | 注销（前端删除本地 token） |
-| `/api/video/list?page=1&pageSize=20` | GET | 分页获取视频列表，返回 `{list, total, page, pageSize}` |
+| `/api/user/info` | GET | 获取当前登录用户信息（昵称/角色/头像） |
+| `/api/user/profile` | PUT | 修改当前用户昵称/密码（改密码需 `old_password` 校验） |
+| `/api/user/avatar` | POST/GET | 上传/获取当前用户头像 |
+| `/api/video/list?page=1&pageSize=20` | GET | 分页获取视频列表，返回 `{list, total, page, pageSize}`，列表项含 `duration`（秒） |
 | `/api/video/play?id=1&token=xxx` | GET | 播放视频流，支持 Range 分片（token 走 query 参数，因 `<video>` 标签无法携带 header） |
 | `/api/video/thumb?id=1&token=xxx` | GET | 获取视频缩略图 |
+| `/api/video/adjacent?id=1` | GET | 获取视频的前一个/后一个（播放页切换用） |
+| `/api/admin/users` | GET/POST | 用户列表/新增用户（仅 admin） |
+| `/api/admin/users/:id` | PUT/DELETE | 编辑/删除用户（仅 admin） |
+| `/api/admin/users/:id/avatar` | POST | 管理员上传指定用户头像（仅 admin） |
+| `/api/video/:id` | DELETE | 删除视频库记录与缩略图，不删除源文件（仅 admin） |
 
 ## 开发模式（前端热更新）
 
@@ -89,14 +97,18 @@ cd web && npm run dev
 
 ```text
 lvs/
-├── main.go         CLI 入口（init/scan/serve）
-├── cmd.go          子命令参数解析
-├── database.go     SQLite 建表、账号、JWT secret
-├── auth.go         JWT 生成解析与认证中间件
-├── handler.go      HTTP 接口
-├── scan.go         MP4 递归扫描 + ffmpeg 缩略图
-├── server.go       Gin 路由 + 前端产物嵌入
-└── web/            Vue3 前端工程（构建产物 web/dist 被嵌入）
+├── main.go           CLI 入口
+├── cmd.go            cobra 子命令（init/scan/serve）与参数解析
+├── database.go       SQLite 建表、账号、JWT secret
+├── auth.go           JWT 生成解析与认证中间件
+├── handler.go        HTTP 接口
+├── scan.go           MP4 递归扫描 + ffmpeg 缩略图/时长探测
+├── server.go         Gin 路由 + 前端产物嵌入
+└── web/              Vue3 前端工程（构建产物 web/dist 被嵌入）
+    ├── src/views/    页面组件（Login/Gallery/Player/AdminUsers）
+    ├── src/components/ 公共组件（Brand/PlayIcon）
+    ├── src/stores/   Pinia 状态（user/gallery）
+    └── src/api.js     axios 封装
 ```
 
 ## 数据存储
