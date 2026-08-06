@@ -31,6 +31,8 @@ func startServer(port int, dbPath string) {
 	authed.POST("/logout", handleLogout)
 	authed.GET("/user/info", handleUserInfo)
 	authed.PUT("/user/profile", handleUserProfile)
+	authed.POST("/user/avatar", handleUserAvatarUpload)
+	authed.GET("/user/avatar", handleUserAvatarGet)
 	authed.GET("/video/list", handleVideoList)
 	authed.GET("/video/play", handleVideoPlay)
 	authed.GET("/video/thumb", handleVideoThumb)
@@ -44,6 +46,7 @@ func startServer(port int, dbPath string) {
 	admin.PUT("/admin/users/:id", handleAdminUserUpdate)
 	admin.DELETE("/admin/users/:id", handleAdminUserDelete)
 	admin.DELETE("/video/:id", handleVideoDelete)
+	admin.POST("/admin/users/:id/avatar", handleAdminUserAvatarUpload)
 
 	// 嵌入的前端静态资源与 SPA fallback
 	if sub, err := fs.Sub(webFS, "web/dist"); err == nil {

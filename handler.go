@@ -4,7 +4,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -30,10 +32,11 @@ func handleLogin(c *gin.Context) {
 		hash     string
 		nickname string
 		role     string
+		avatar   string
 		pwdVer   int64
 	)
-	err := db.QueryRow(`SELECT id, password, nickname, role, pwd_ver FROM users WHERE username = ?`, req.Username).
-		Scan(&id, &hash, &nickname, &role, &pwdVer)
+	err := db.QueryRow(`SELECT id, password, nickname, role, avatar, pwd_ver FROM users WHERE username = ?`, req.Username).
+		Scan(&id, &hash, &nickname, &role, &avatar, &pwdVer)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
 		respond(c, 1, "用户名或密码错误", nil)
 		return
@@ -46,7 +49,7 @@ func handleLogin(c *gin.Context) {
 		respond(c, 1, "登录失败", nil)
 		return
 	}
-	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "nickname": nickname, "role": role})
+	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "nickname": nickname, "role": role, "avatar": avatar})
 }
 
 // handleLogout 由前端删除本地 token，服务端仅返回成功
@@ -88,21 +91,102 @@ func handleUserProfile(c *gin.Context) {
 	respond(c, 0, "ok", nil)
 }
 
-// handleUserInfo 返回当前登录用户的最新信息（昵称可能已被修改）
+// handleUserInfo 返回当前登录用户的最新信息（昵称/头像可能已被修改）
 func handleUserInfo(c *gin.Context) {
 	claims := c.MustGet("claims").(*Claims)
 	var (
 		nickname string
 		role     string
+		avatar   string
 	)
-	if err := db.QueryRow(`SELECT nickname, role FROM users WHERE id = ?`, claims.UserID).Scan(&nickname, &role); err != nil {
+	if err := db.QueryRow(`SELECT nickname, role, avatar FROM users WHERE id = ?`, claims.UserID).Scan(&nickname, &role, &avatar); err != nil {
 		respond(c, 1, "用户不存在", nil)
 		return
 	}
 	if nickname == "" {
 		nickname = claims.Username
 	}
-	respond(c, 0, "ok", gin.H{"username": claims.Username, "nickname": nickname, "role": role})
+	respond(c, 0, "ok", gin.H{"username": claims.Username, "nickname": nickname, "role": role, "avatar": avatar})
+}
+
+const avatarDir = "data/avatars"
+
+var avatarExts = []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+// saveAvatar 保存上传的头像文件并更新用户记录
+func saveAvatar(c *gin.Context, username string) {
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		respond(c, 1, "缺少头像文件", nil)
+		return
+	}
+	if file.Size > 2*1024*1024 {
+		respond(c, 1, "头像文件不能超过 2MB", nil)
+		return
+	}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if !slices.Contains(avatarExts, ext) {
+		respond(c, 1, "不支持的图片格式", nil)
+		return
+	}
+	if err := os.MkdirAll(avatarDir, 0o755); err != nil {
+		respond(c, 1, "创建头像目录失败", nil)
+		return
+	}
+	path := filepath.Join(avatarDir, username+ext)
+	if err := c.SaveUploadedFile(file, path); err != nil {
+		respond(c, 1, "保存头像失败", nil)
+		return
+	}
+	// 清理同用户旧的其它扩展头像
+	for _, e := range avatarExts {
+		if e != ext {
+			_ = os.Remove(filepath.Join(avatarDir, username+e))
+		}
+	}
+	if _, err := db.Exec(`UPDATE users SET avatar = ? WHERE username = ?`, path, username); err != nil {
+		respond(c, 1, "更新头像失败", nil)
+		return
+	}
+	respond(c, 0, "ok", nil)
+}
+
+// handleUserAvatarUpload 上传当前登录用户头像
+func handleUserAvatarUpload(c *gin.Context) {
+	claims := c.MustGet("claims").(*Claims)
+	saveAvatar(c, claims.Username)
+}
+
+// handleAdminUserAvatarUpload 管理员上传指定用户头像
+func handleAdminUserAvatarUpload(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var username string
+	if err := db.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&username); err != nil {
+		respond(c, 1, "用户不存在", nil)
+		return
+	}
+	saveAvatar(c, username)
+}
+
+// handleUserAvatarGet 返回用户头像图片，无头像返回 204
+func handleUserAvatarGet(c *gin.Context) {
+	username := c.Query("username")
+	if username == "" {
+		respond(c, 1, "缺少用户名", nil)
+		return
+	}
+	var avatar string
+	if err := db.QueryRow(`SELECT avatar FROM users WHERE username = ?`, username).Scan(&avatar); err != nil || avatar == "" {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	if _, err := os.Stat(avatar); err != nil {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	// 禁用缓存，确保更换头像后立即生效
+	c.Header("Cache-Control", "no-cache")
+	c.File(avatar)
 }
 
 // adminAuthMiddleware 仅允许 admin 角色访问
@@ -139,11 +223,12 @@ func handleAdminUserCreate(c *gin.Context) {
 		respond(c, 1, "用户名和密码不能为空", nil)
 		return
 	}
-	if err := createUser(req.Username, req.Password, req.Nickname); err != nil {
+	id, err := createUser(req.Username, req.Password, req.Nickname)
+	if err != nil {
 		respond(c, 1, err.Error(), nil)
 		return
 	}
-	respond(c, 0, "ok", nil)
+	respond(c, 0, "ok", gin.H{"id": id})
 }
 
 func handleAdminUserUpdate(c *gin.Context) {

@@ -75,6 +75,7 @@ func createTables(d *sql.DB) error {
 			nickname TEXT NOT NULL DEFAULT '',
 			role TEXT NOT NULL DEFAULT 'user',
 			pwd_ver INTEGER NOT NULL DEFAULT 0,
+			avatar TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS videos (
@@ -97,25 +98,26 @@ func createTables(d *sql.DB) error {
 	return nil
 }
 
-// createUser 创建用户（用户名重复时返回错误）
-func createUser(username, password, nickname string) error {
+// createUser 创建用户（用户名重复时返回错误），返回新用户 id
+func createUser(username, password, nickname string) (int64, error) {
 	if nickname == "" {
 		nickname = username
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	role := "user"
 	if username == "admin" {
 		role = "admin"
 	}
-	_, err = db.Exec(`INSERT INTO users(username, password, nickname, role, created_at) VALUES(?, ?, ?, ?, ?)`,
+	res, err := db.Exec(`INSERT INTO users(username, password, nickname, role, created_at) VALUES(?, ?, ?, ?, ?)`,
 		username, string(hash), nickname, role, time.Now())
 	if err != nil {
-		return fmt.Errorf("创建用户失败: %w", err)
+		return 0, fmt.Errorf("创建用户失败: %w", err)
 	}
-	return nil
+	id, _ := res.LastInsertId()
+	return id, nil
 }
 
 // updateUser 按 id 更新昵称, 密码非空时同时更新密码
@@ -143,12 +145,13 @@ type userInfo struct {
 	Username  string `json:"username"`
 	Nickname  string `json:"nickname"`
 	Role      string `json:"role"`
+	Avatar    string `json:"avatar"`
 	CreatedAt string `json:"created_at"`
 }
 
 // listUsers 查询全部用户
 func listUsers() ([]userInfo, error) {
-	rows, err := db.Query(`SELECT id, username, nickname, role, created_at FROM users ORDER BY id`)
+	rows, err := db.Query(`SELECT id, username, nickname, role, avatar, created_at FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +160,7 @@ func listUsers() ([]userInfo, error) {
 	for rows.Next() {
 		var u userInfo
 		var created time.Time
-		if err := rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Role, &created); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Role, &u.Avatar, &created); err != nil {
 			return nil, err
 		}
 		u.CreatedAt = created.Format("2006-01-02 15:04:05")

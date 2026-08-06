@@ -23,6 +23,13 @@
     <div v-loading="loading" class="table-wrap" element-loading-text="加载中…">
       <el-table :data="users" style="width: 100%">
         <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column label="头像" width="80">
+          <template #default="{ row }">
+            <el-avatar :size="32" :src="row.avatar ? avatarUrl(row.username) : ''">
+              {{ (row.nickname || row.username).charAt(0).toUpperCase() }}
+            </el-avatar>
+          </template>
+        </el-table-column>
         <el-table-column prop="username" label="用户名" min-width="140" />
         <el-table-column prop="nickname" label="昵称" min-width="140">
           <template #default="{ row }">{{ row.nickname || '-' }}</template>
@@ -60,6 +67,19 @@
       align-center
     >
       <el-form label-position="top">
+        <el-form-item label="头像">
+          <el-upload
+            class="avatar-upload"
+            :show-file-list="false"
+            accept="image/*"
+            :http-request="onPickAvatar"
+          >
+            <el-avatar :size="72" :src="dialogAvatarSrc">
+              {{ (editing?.nickname || editing?.username || '?').charAt(0).toUpperCase() }}
+            </el-avatar>
+            <div class="upload-tip">{{ editing ? '点击更换头像' : '点击选择头像' }}</div>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model.trim="form.username" :disabled="!!editing" placeholder="登录用户名" />
         </el-form-item>
@@ -84,10 +104,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { fetchUsers, createUser, updateUser, deleteUser } from '../api'
+import { fetchUsers, createUser, updateUser, deleteUser, uploadUserAvatar, avatarUrl } from '../api'
 
 const users = ref([])
 const loading = ref(false)
@@ -96,6 +116,7 @@ const showModal = ref(false)
 const editing = ref(null)
 const saving = ref(false)
 const form = ref({ username: '', nickname: '', password: '' })
+const avatarFile = ref(null)
 
 async function load() {
   loading.value = true
@@ -111,13 +132,26 @@ async function load() {
 function openCreate() {
   editing.value = null
   form.value = { username: '', nickname: '', password: '' }
+  avatarFile.value = null
   showModal.value = true
 }
 
 function openEdit(u) {
   editing.value = u
   form.value = { username: u.username, nickname: u.nickname, password: '' }
+  avatarFile.value = null
   showModal.value = true
+}
+
+// 弹窗头像预览：优先新选择的文件，否则显示当前头像
+const dialogAvatarSrc = computed(() => {
+  if (avatarFile.value) return URL.createObjectURL(avatarFile.value)
+  return editing.value?.avatar ? avatarUrl(editing.value.username) : ''
+})
+
+// 选择头像文件（暂存，保存时统一上传）
+function onPickAvatar({ file }) {
+  avatarFile.value = file
 }
 
 async function onSave() {
@@ -136,13 +170,19 @@ async function onSave() {
         nickname: form.value.nickname,
         password: form.value.password,
       })
+      if (avatarFile.value) {
+        await uploadUserAvatar(editing.value.id, avatarFile.value)
+      }
       ElMessage.success('用户已更新')
     } else {
-      await createUser({
+      const data = await createUser({
         username: form.value.username,
         nickname: form.value.nickname,
         password: form.value.password,
       })
+      if (avatarFile.value && data?.id) {
+        await uploadUserAvatar(data.id, avatarFile.value)
+      }
       ElMessage.success('用户已创建')
     }
     showModal.value = false
@@ -260,5 +300,18 @@ onMounted(load)
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
+}
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.upload-tip {
+  margin-left: 14px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.avatar-upload:hover .upload-tip {
+  color: var(--accent-1);
 }
 </style>

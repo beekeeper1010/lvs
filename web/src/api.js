@@ -33,6 +33,31 @@ export const login = (username, password) => api.post('/login', { username, pass
 export const logout = () => api.post('/logout')
 export const fetchUserInfo = () => api.get('/user/info')
 export const updateProfile = (data) => api.put('/user/profile', data)
+// 头像版本号：上传成功后递增，使头像 URL 变化强制重新加载
+let avatarVersion = 0
+const bumpAvatarVersion = () => {
+  avatarVersion += 1
+}
+
+export const uploadMyAvatar = async (file) => {
+  const fd = new FormData()
+  fd.append('avatar', file)
+  const r = await api.post('/user/avatar', fd)
+  bumpAvatarVersion()
+  return r
+}
+export const uploadUserAvatar = async (id, file) => {
+  const fd = new FormData()
+  fd.append('avatar', file)
+  const r = await api.post(`/admin/users/${id}/avatar`, fd)
+  bumpAvatarVersion()
+  return r
+}
+// 头像访问 URL（需携带 token，版本号用于缓存刷新）
+export const avatarUrl = (username) => {
+  const token = localStorage.getItem('token')
+  return `/api/user/avatar?username=${encodeURIComponent(username)}&token=${token}&v=${avatarVersion}`
+}
 export const fetchVideos = (page, pageSize) => api.get('/video/list', { params: { page, pageSize } })
 export const fetchAdjacent = (id) => api.get('/video/adjacent', { params: { id } })
 export const deleteVideo = (id) => api.delete(`/video/${id}`)

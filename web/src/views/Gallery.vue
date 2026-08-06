@@ -11,7 +11,9 @@
       </div>
       <div class="actions">
         <div class="user-chip" :title="userStore.username">
-          <el-avatar :size="28" class="avatar">{{ userStore.avatarText }}</el-avatar>
+          <el-avatar :size="28" class="avatar" :src="myAvatarSrc">
+            {{ userStore.avatarText }}
+          </el-avatar>
           <span class="nickname">{{ userStore.displayName }}</span>
         </div>
         <el-dropdown trigger="click" @command="onCommand">
@@ -95,6 +97,17 @@
     <!-- 用户设置弹窗 -->
     <el-dialog v-model="showSettings" title="用户设置" width="420px" align-center>
       <el-form label-position="top">
+        <el-form-item label="头像">
+          <el-upload
+            class="avatar-upload"
+            :show-file-list="false"
+            accept="image/*"
+            :http-request="doUploadAvatar"
+          >
+            <el-avatar :size="72" :src="myAvatarSrc">{{ userStore.avatarText }}</el-avatar>
+            <div class="upload-tip">点击更换头像</div>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model.trim="settingsForm.nickname" placeholder="显示昵称" />
         </el-form-item>
@@ -132,11 +145,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, UserFilled, Setting, SwitchButton, Delete } from '@element-plus/icons-vue'
-import { fetchVideos, fetchUserInfo, updateProfile, deleteVideo, logout } from '../api'
+import {
+  fetchVideos,
+  fetchUserInfo,
+  updateProfile,
+  deleteVideo,
+  uploadMyAvatar,
+  avatarUrl,
+  logout,
+} from '../api'
 import { useUserStore } from '../stores/user'
 
 const router = useRouter()
@@ -175,12 +196,33 @@ async function load() {
   }
 }
 
-// 从服务端同步最新用户信息（昵称可能已被修改）
+// 从服务端同步最新用户信息（昵称/头像可能已被修改）
 async function syncUserInfo() {
   try {
     userStore.setInfo(await fetchUserInfo())
   } catch (e) {
     // 忽略，沿用本地缓存
+  }
+}
+
+// 头像刷新标记：上传成功后递增，强制头像地址变化以重新加载
+const avatarRefresh = ref(0)
+
+// 当前用户头像地址
+const myAvatarSrc = computed(() => {
+  void avatarRefresh.value
+  return userStore.hasAvatar ? avatarUrl(userStore.username) : ''
+})
+
+// 上传当前用户头像
+async function doUploadAvatar({ file }) {
+  try {
+    await uploadMyAvatar(file)
+    await syncUserInfo()
+    avatarRefresh.value += 1
+    ElMessage.success('头像已更新')
+  } catch (e) {
+    ElMessage.error(e.message || '上传失败')
   }
 }
 
@@ -351,6 +393,19 @@ onMounted(() => {
 .avatar {
   background: var(--grad);
   font-weight: 700;
+}
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.upload-tip {
+  margin-left: 14px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.avatar-upload:hover .upload-tip {
+  color: var(--accent-1);
 }
 .nickname {
   max-width: 120px;
