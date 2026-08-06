@@ -97,6 +97,7 @@ type scanResult struct {
 	task     scanTask
 	fresh    bool // 已是最新，跳过
 	hasVideo bool
+	duration float64
 	thumb    string
 	ok       bool
 }
@@ -153,7 +154,7 @@ func scanDirectory(dir, thumbsDir string) error {
 				return
 			}
 			thumb, ok := generateThumb(t.path, thumbsDir, probe.duration)
-			results <- scanResult{task: t, hasVideo: true, thumb: thumb, ok: ok}
+			results <- scanResult{task: t, hasVideo: true, duration: probe.duration, thumb: thumb, ok: ok}
 		}(t)
 	}
 	go func() {
@@ -168,11 +169,11 @@ func scanDirectory(dir, thumbsDir string) error {
 		case r.fresh:
 			count++
 		case !r.hasVideo:
-			upsertVideo(r.task.name, r.task.path, "", false)
+			upsertVideo(r.task.name, r.task.path, "", 0, false)
 			log.Printf("无视频流, 跳过缩略图: %s", r.task.path)
 			count++
 		default:
-			upsertVideo(r.task.name, r.task.path, r.thumb, r.ok)
+			upsertVideo(r.task.name, r.task.path, r.thumb, r.duration, r.ok)
 			count++
 		}
 	}
@@ -212,14 +213,14 @@ func generateThumb(videoPath, thumbsDir string, duration float64) (string, bool)
 }
 
 // upsertVideo 按 path 唯一键插入或更新视频记录
-func upsertVideo(name, path, thumb string, thumbOK bool) bool {
+func upsertVideo(name, path, thumb string, duration float64, thumbOK bool) bool {
 	if !thumbOK {
 		thumb = ""
 	}
 	res, err := db.Exec(`
-		INSERT INTO videos(name, path, thumb_path, created_at) VALUES(?, ?, ?, ?)
-		ON CONFLICT(path) DO UPDATE SET name=excluded.name, thumb_path=excluded.thumb_path`,
-		name, path, thumb, time.Now())
+		INSERT INTO videos(name, path, thumb_path, duration, created_at) VALUES(?, ?, ?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET name=excluded.name, thumb_path=excluded.thumb_path, duration=excluded.duration`,
+		name, path, thumb, duration, time.Now())
 	if err != nil {
 		log.Printf("写入数据库失败 %s: %v", path, err)
 		return false

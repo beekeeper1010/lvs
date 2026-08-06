@@ -83,6 +83,7 @@ func createTables(d *sql.DB) error {
 			name TEXT NOT NULL,
 			path TEXT NOT NULL UNIQUE,
 			thumb_path TEXT NOT NULL DEFAULT '',
+			duration REAL NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS settings (

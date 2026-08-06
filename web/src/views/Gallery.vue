@@ -78,7 +78,7 @@
         </div>
         <div class="meta">
           <div class="name" :title="v.name">{{ v.name }}</div>
-          <div class="date">{{ v.created_at }}</div>
+          <div class="duration">{{ formatDuration(v.duration) }}</div>
         </div>
       </div>
     </div>
@@ -191,6 +191,17 @@ const settingsForm = ref({ nickname: '', oldPassword: '', newPassword: '', confi
 function thumbUrl(v) {
   const token = localStorage.getItem('token')
   return `/api/video/thumb?id=${v.id}&token=${token}`
+}
+
+// 秒数格式化为 HH:MM:SS（不足 1 小时显示 MM:SS）
+function formatDuration(sec) {
+  if (!sec || sec <= 0) return ''
+  const s = Math.round(sec)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const pad = (n) => String(n).padStart(2, '0')
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`
 }
 
 function play(v) {
@@ -585,19 +596,26 @@ onMounted(() => {
 }
 
 .meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 13px 15px 14px;
 }
 .name {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.date {
-  margin-top: 5px;
+.duration {
+  flex-shrink: 0;
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 分页 */
