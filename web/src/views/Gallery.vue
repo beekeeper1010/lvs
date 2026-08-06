@@ -86,10 +86,12 @@
     <footer v-if="total > 0" class="pager">
       <el-pagination
         background
-        layout="prev, pager, next, total"
+        layout="total, sizes, prev, pager, next"
         :total="total"
         :page-size="pageSize"
+        :page-sizes="pageSizeOptions"
         :current-page="page"
+        @size-change="onSizeChange"
         @current-change="changePage"
       />
     </footer>
@@ -165,15 +167,20 @@ const router = useRouter()
 const userStore = useUserStore()
 const galleryStore = useGalleryStore()
 const videos = ref([])
-// 页码：从 store 恢复，组件销毁重建后返回广场时仍停留在原页
+// 页码/每页条数：从 store 恢复，组件销毁重建后返回广场时仍停留在原状态
 const page = ref(galleryStore.page)
-const pageSize = 20
+const pageSize = ref(galleryStore.pageSize)
+const pageSizeOptions = [20, 50, 100]
 const total = ref(0)
 const loading = ref(false)
 
 // 页码变化即同步到 store
 watch(page, (p) => {
   galleryStore.page = p
+})
+// 每页条数变化：同步到 store 并回到第 1 页
+watch(pageSize, (s) => {
+  galleryStore.pageSize = s
 })
 
 // 用户设置弹窗
@@ -195,7 +202,7 @@ function play(v) {
 async function load() {
   loading.value = true
   try {
-    const data = await fetchVideos(page.value, pageSize)
+    const data = await fetchVideos(page.value, pageSize.value)
     videos.value = data.list
     total.value = data.total
   } catch (e) {
@@ -207,6 +214,16 @@ async function load() {
 
 function changePage(p) {
   page.value = p
+  load()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// 每页条数变更：回到第 1 页重新加载
+function onSizeChange(size) {
+  pageSize.value = size
+  if (page.value !== 1) {
+    page.value = 1
+  }
   load()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }

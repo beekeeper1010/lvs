@@ -4,5 +4,6 @@ import { defineStore } from 'pinia'
 export const useGalleryStore = defineStore('gallery', {
   state: () => ({
     page: 1,
+    pageSize: 20,
   }),
 })
