@@ -145,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, UserFilled, Setting, SwitchButton, Delete } from '@element-plus/icons-vue'
@@ -159,14 +159,22 @@ import {
   logout,
 } from '../api'
 import { useUserStore } from '../stores/user'
+import { useGalleryStore } from '../stores/gallery'
 
 const router = useRouter()
 const userStore = useUserStore()
+const galleryStore = useGalleryStore()
 const videos = ref([])
-const page = ref(1)
-const pageSize = 12
+// 页码：从 store 恢复，组件销毁重建后返回广场时仍停留在原页
+const page = ref(galleryStore.page)
+const pageSize = 20
 const total = ref(0)
 const loading = ref(false)
+
+// 页码变化即同步到 store
+watch(page, (p) => {
+  galleryStore.page = p
+})
 
 // 用户设置弹窗
 const showSettings = ref(false)
@@ -183,6 +191,7 @@ function play(v) {
   router.push(`/play/${v.id}`)
 }
 
+// 加载当前页并替换列表（分页）
 async function load() {
   loading.value = true
   try {
@@ -194,6 +203,12 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function changePage(p) {
+  page.value = p
+  load()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 从服务端同步最新用户信息（昵称/头像可能已被修改）
@@ -277,12 +292,6 @@ async function saveSettings() {
   } finally {
     savingSettings.value = false
   }
-}
-
-function changePage(p) {
-  page.value = p
-  load()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 删除视频（仅移除库记录与缩略图，不删除源文件）

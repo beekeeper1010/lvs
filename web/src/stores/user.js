@@ -1,4 +1,5 @@
 import { createPinia, defineStore } from 'pinia'
+import { useGalleryStore } from './gallery'
 
 // 独立导出 pinia 实例，供路由守卫与 axios 拦截器等非组件环境使用
 export const pinia = createPinia()
@@ -54,6 +55,8 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('nickname')
       localStorage.removeItem('role')
       localStorage.removeItem('avatar')
+      // 清除广场页 UI 状态（如页码），避免下一位用户登录后残留
+      useGalleryStore(this.$pinia).$reset()
     },
   },
 })

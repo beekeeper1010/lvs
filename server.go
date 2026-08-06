@@ -53,6 +53,12 @@ func startServer(port int, dbPath string) {
 		if assets, err := fs.Sub(sub, "assets"); err == nil {
 			r.StaticFS("/assets", http.FS(assets))
 		}
+		// 站点图标（需显式服务，避免被 SPA fallback 拦截）
+		if favicon, err := fs.ReadFile(sub, "favicon.svg"); err == nil {
+			r.GET("/favicon.svg", func(c *gin.Context) {
+				c.Data(http.StatusOK, "image/svg+xml", favicon)
+			})
+		}
 		index, _ := fs.ReadFile(sub, "index.html")
 		r.NoRoute(func(c *gin.Context) {
 			if strings.HasPrefix(c.Request.URL.Path, "/api") {
