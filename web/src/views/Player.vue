@@ -284,4 +284,30 @@ video {
   opacity: 0.25;
   cursor: not-allowed;
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 10px 14px;
+  }
+  .title {
+    max-width: 62%;
+    font-size: 14px;
+  }
+  .video-wrap {
+    margin: 20px auto 40px;
+    padding: 0 10px;
+  }
+  /* 导航箭头移入屏幕内，避免溢出 */
+  .nav-prev {
+    left: -8px;
+  }
+  .nav-next {
+    right: -8px;
+  }
+  .nav-btn {
+    width: 40px;
+    height: 40px;
+  }
+}
 </style>

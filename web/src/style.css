@@ -110,3 +110,11 @@ input:-webkit-autofill {
   border-top-color: var(--accent-1);
   animation: spin 0.8s linear infinite;
 }
+
+/* 移动端：对话框占满可用宽度（append-to-body 后 scoped 样式失效，需全局） */
+@media (max-width: 480px) {
+  .el-dialog {
+    width: calc(100vw - 28px) !important;
+    margin: 12vh auto !important;
+  }
+}

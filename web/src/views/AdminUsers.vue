@@ -278,4 +278,24 @@ onMounted(load)
 .avatar-upload:hover .upload-tip {
   color: var(--accent-1);
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 10px 14px;
+  }
+  .head {
+    padding: 24px 14px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .head h1 {
+    font-size: 24px;
+  }
+  .table-wrap {
+    padding: 0 14px;
+    margin: 12px auto 30px;
+  }
+}
 </style>

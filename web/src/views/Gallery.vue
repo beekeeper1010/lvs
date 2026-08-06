@@ -85,6 +85,23 @@
       />
     </footer>
 
+    <!-- 回到顶部：teleport 到 body，避免组件内 transform 动画破坏 fixed 定位 -->
+    <Teleport to="body">
+      <transition name="fade">
+        <button
+          v-show="showBackTop"
+          class="back-top"
+          :aria-label="'回到顶部'"
+          @click="scrollToTop"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5" />
+            <path d="m5 12 7-7 7 7" />
+          </svg>
+        </button>
+      </transition>
+    </Teleport>
+
     <!-- 用户设置弹窗 -->
     <el-dialog v-model="showSettings" title="用户设置" width="420px" align-center append-to-body>
       <el-form label-position="top">
@@ -136,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, UserFilled, Setting, SwitchButton, Delete } from '@element-plus/icons-vue'
@@ -355,9 +372,25 @@ async function onLogout() {
   router.push('/login')
 }
 
+// 回到顶部：滚动超过一定距离显示按钮
+const showBackTop = ref(false)
+
+function onScroll() {
+  showBackTop.value = window.scrollY > 400
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 onMounted(() => {
   load()
   syncUserInfo()
+  window.addEventListener('scroll', onScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
 })
 </script>
 
@@ -480,6 +513,8 @@ onMounted(() => {
   cursor: pointer;
   opacity: 0;
   animation: fadeUp 0.45s ease forwards;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.45),
+    0 0 26px rgba(124, 92, 255, 0.1);
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease,
     background 0.25s ease;
 }
@@ -487,7 +522,8 @@ onMounted(() => {
   transform: translateY(-6px);
   background: var(--surface-hover);
   border-color: rgba(124, 92, 255, 0.4);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 92, 255, 0.18);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 36px rgba(124, 92, 255, 0.22), 0 0 0 1px rgba(124, 92, 255, 0.18);
 }
 
 .thumb {
@@ -592,5 +628,89 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 10px 0 40px;
+}
+
+/* 回到顶部按钮 */
+.back-top {
+  position: fixed;
+  right: 24px;
+  bottom: 32px;
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(20, 21, 29, 0.82);
+  color: var(--text-2);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  transition: color 0.2s, border-color 0.2s, transform 0.2s;
+}
+.back-top:hover {
+  color: #fff;
+  border-color: rgba(124, 92, 255, 0.6);
+  transform: translateY(-3px);
+}
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 10px 14px;
+  }
+  .back-top {
+    right: 14px;
+    bottom: 20px;
+    width: 40px;
+    height: 40px;
+  }
+  .nickname {
+    max-width: 76px;
+  }
+  .hero {
+    padding: 28px 14px 8px;
+  }
+  .hero h1 {
+    font-size: 26px;
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 14px;
+  }
+  .pager {
+    justify-content: flex-start;
+    padding: 10px 12px 30px;
+    overflow-x: auto;
+  }
+  .pager :deep(.el-pagination__sizes),
+  .pager :deep(.el-pagination__total) {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .brand-name {
+    letter-spacing: 2px;
+  }
+  .hero p {
+    font-size: 13px;
+  }
 }
 </style>

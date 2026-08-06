@@ -214,4 +214,25 @@ async function onLogin() {
   transform: translateY(-2px);
   box-shadow: 0 14px 36px rgba(124, 92, 255, 0.5);
 }
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 14px;
+  }
+  .login-card {
+    padding: 32px 22px 28px;
+    border-radius: 18px;
+  }
+  .brand-name {
+    font-size: 28px;
+    letter-spacing: 7px;
+    text-indent: 7px;
+  }
+  .brand-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 15px;
+  }
+}
 </style>
