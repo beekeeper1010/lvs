@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -270,6 +271,8 @@ type videoItem struct {
 	Path      string  `json:"path"`
 	ThumbPath string  `json:"thumb_path"`
 	Duration  float64 `json:"duration"`
+	LikeCount int64   `json:"like_count"`
+	Liked     bool    `json:"liked"` // 当前登录用户是否已点赞
 }
 
 func handleVideoList(c *gin.Context) {
@@ -284,13 +287,25 @@ func handleVideoList(c *gin.Context) {
 	if pageSize > 100 {
 		pageSize = 100
 	}
+	claims := c.MustGet("claims").(*Claims)
 	var total int64
 	if err := db.QueryRow(`SELECT COUNT(*) FROM videos`).Scan(&total); err != nil {
 		respond(c, 1, "查询失败", nil)
 		return
 	}
+	// 当前用户已点赞的视频 id 集合
+	likedIDs := map[int64]bool{}
+	if rows, err := db.Query(`SELECT video_id FROM video_likes WHERE user_id = ?`, claims.UserID); err == nil {
+		for rows.Next() {
+			var vid int64
+			if rows.Scan(&vid) == nil {
+				likedIDs[vid] = true
+			}
+		}
+		rows.Close()
+	}
 	rows, err := db.Query(
-		`SELECT id, name, path, thumb_path, duration FROM videos ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT id, name, path, thumb_path, duration, like_count FROM videos ORDER BY id DESC LIMIT ? OFFSET ?`,
 		pageSize, (page-1)*pageSize)
 	if err != nil {
 		respond(c, 1, "查询失败", nil)
@@ -300,9 +315,10 @@ func handleVideoList(c *gin.Context) {
 	list := make([]videoItem, 0, pageSize)
 	for rows.Next() {
 		var v videoItem
-		if err := rows.Scan(&v.ID, &v.Name, &v.Path, &v.ThumbPath, &v.Duration); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.Path, &v.ThumbPath, &v.Duration, &v.LikeCount); err != nil {
 			continue
 		}
+		v.Liked = likedIDs[v.ID]
 		list = append(list, v)
 	}
 	if err := rows.Err(); err != nil {
@@ -359,6 +375,71 @@ func handleVideoDelete(c *gin.Context) {
 		_ = os.Remove(thumb)
 	}
 	respond(c, 0, "ok", nil)
+}
+
+// handleVideoLike 点赞/取消点赞（每用户仅一次），返回最新点赞数与点赞状态
+func handleVideoLike(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的视频ID", nil)
+		return
+	}
+	var req struct {
+		Liked bool `json:"liked"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respond(c, 1, "请求参数错误", nil)
+		return
+	}
+	// 校验视频存在
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM videos WHERE id = ?`, id).Scan(&exists); err != nil || exists == 0 {
+		respond(c, 1, "视频不存在", nil)
+		return
+	}
+	claims := c.MustGet("claims").(*Claims)
+	// 在事务中更新点赞记录与计数，保证一致性
+	tx, err := db.Begin()
+	if err != nil {
+		respond(c, 1, "操作失败", nil)
+		return
+	}
+	defer tx.Rollback()
+	if req.Liked {
+		// 已存在则忽略（幂等），不存在才插入并 +1
+		if _, err := tx.Exec(
+			`INSERT INTO video_likes(video_id, user_id, created_at) VALUES(?, ?, ?) ON CONFLICT(video_id, user_id) DO NOTHING`,
+			id, claims.UserID, time.Now()); err != nil {
+			respond(c, 1, "点赞失败", nil)
+			return
+		}
+		if _, err := tx.Exec(
+			`UPDATE videos SET like_count = (SELECT COUNT(*) FROM video_likes WHERE video_id = ?) WHERE id = ?`, id, id); err != nil {
+			respond(c, 1, "点赞失败", nil)
+			return
+		}
+	} else {
+		if _, err := tx.Exec(
+			`DELETE FROM video_likes WHERE video_id = ? AND user_id = ?`, id, claims.UserID); err != nil {
+			respond(c, 1, "取消点赞失败", nil)
+			return
+		}
+		if _, err := tx.Exec(
+			`UPDATE videos SET like_count = (SELECT COUNT(*) FROM video_likes WHERE video_id = ?) WHERE id = ?`, id, id); err != nil {
+			respond(c, 1, "取消点赞失败", nil)
+			return
+		}
+	}
+	var count int64
+	if err := tx.QueryRow(`SELECT like_count FROM videos WHERE id = ?`, id).Scan(&count); err != nil {
+		respond(c, 1, "操作失败", nil)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		respond(c, 1, "操作失败", nil)
+		return
+	}
+	respond(c, 0, "ok", gin.H{"like_count": count, "liked": req.Liked})
 }
 
 // handleVideoAdjacent 返回指定视频的前一个与后一个（按 id 排序），用于播放页切换

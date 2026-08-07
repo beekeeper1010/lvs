@@ -61,6 +61,7 @@ export const avatarUrl = (username) => {
 export const fetchVideos = (page, pageSize) => api.get('/video/list', { params: { page, pageSize } })
 export const fetchAdjacent = (id) => api.get('/video/adjacent', { params: { id } })
 export const deleteVideo = (id) => api.delete(`/video/${id}`)
+export const likeVideo = (id, liked) => api.put(`/video/${id}/like`, { liked })
 
 // 用户管理（仅 admin）
 export const fetchUsers = () => api.get('/admin/users')

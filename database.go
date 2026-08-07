@@ -84,7 +84,15 @@ func createTables(d *sql.DB) error {
 			path TEXT NOT NULL UNIQUE,
 			thumb_path TEXT NOT NULL DEFAULT '',
 			duration REAL NOT NULL DEFAULT 0,
+			like_count INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL
+		)`,
+		// 点赞记录：联合主键保证每个用户对同一视频最多点赞一次
+		`CREATE TABLE IF NOT EXISTS video_likes (
+			video_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			created_at DATETIME NOT NULL,
+			PRIMARY KEY (video_id, user_id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,

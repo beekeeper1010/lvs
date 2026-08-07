@@ -68,6 +68,17 @@
         <div class="meta">
           <div class="name" :title="v.name">{{ v.name }}</div>
           <div class="duration">{{ formatDuration(v.duration) }}</div>
+          <button
+            class="like-btn"
+            :class="{ liked: v.liked }"
+            :aria-label="v.liked ? '取消点赞' : '点赞'"
+            @click.stop="onLike(v)"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M1 21h4V9H1v12zM23 10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L14.17 1 7.59 7.59A2 2 0 0 0 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+            </svg>
+            <span class="like-count">{{ v.like_count }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -162,6 +173,7 @@ import {
   fetchUserInfo,
   updateProfile,
   deleteVideo,
+  likeVideo,
   uploadMyAvatar,
   avatarUrl,
   logout,
@@ -329,6 +341,18 @@ async function saveSettings() {
     ElMessage.error(e.message || '保存失败')
   } finally {
     savingSettings.value = false
+  }
+}
+
+// 点赞/取消点赞，成功后用服务端返回的最新计数与状态更新本地数据
+async function onLike(v) {
+  const target = !v.liked
+  try {
+    const data = await likeVideo(v.id, target)
+    v.liked = data.liked
+    v.like_count = data.like_count
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
   }
 }
 
@@ -619,6 +643,28 @@ onUnmounted(() => {
   flex-shrink: 0;
   font-size: 12px;
   color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.like-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.like-btn:hover {
+  color: var(--accent-1);
+}
+.like-btn.liked {
+  color: var(--accent-1);
+}
+.like-count {
   font-variant-numeric: tabular-nums;
 }
 
