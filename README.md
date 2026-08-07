@@ -6,7 +6,8 @@
 
 - 内置账号登录（JWT 认证），支持用户管理（admin 专属）与用户设置（改昵称/密码/头像）
 - 递归扫描本地目录的 MP4 文件，用 ffmpeg 自动提取缩略图并记录播放时长
-- 视频广场卡片式展示：文件名 + 播放时长，分页浏览，可切换每页条数（20/50/100）
+- 视频广场卡片式展示：文件名 + 播放时长 + 点赞数，分页浏览，可切换每页条数（20/50/100）
+- 视频点赞：每个用户仅一次，可点赞/取消，计数实时更新
 - 基于 H5 `<video>` 标签播放，支持 Range 分片下载（拖拽进度、跳播流畅）
 - 影院风格沉浸式播放页面，支持上一集/下一集切换
 - 前端产物嵌入二进制，单文件即可部署运行
@@ -68,10 +69,11 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 | `/api/user/info` | GET | 获取当前登录用户信息（昵称/角色/头像） |
 | `/api/user/profile` | PUT | 修改当前用户昵称/密码（改密码需 `old_password` 校验） |
 | `/api/user/avatar` | POST/GET | 上传/获取当前用户头像 |
-| `/api/video/list?page=1&pageSize=20` | GET | 分页获取视频列表，返回 `{list, total, page, pageSize}`，列表项含 `duration`（秒） |
+| `/api/video/list?page=1&pageSize=20` | GET | 分页获取视频列表，返回 `{list, total, page, pageSize}`；列表项含 `duration`（秒）、`like_count`、`liked`（当前用户是否已赞） |
 | `/api/video/play?id=1&token=xxx` | GET | 播放视频流，支持 Range 分片（token 走 query 参数，因 `<video>` 标签无法携带 header） |
 | `/api/video/thumb?id=1&token=xxx` | GET | 获取视频缩略图 |
 | `/api/video/adjacent?id=1` | GET | 获取视频的前一个/后一个（播放页切换用） |
+| `/api/video/:id/like` | PUT | 点赞/取消点赞，请求 `{liked: true/false}`，返回 `{like_count, liked}` |
 | `/api/admin/users` | GET/POST | 用户列表/新增用户（仅 admin） |
 | `/api/admin/users/:id` | PUT/DELETE | 编辑/删除用户（仅 admin） |
 | `/api/admin/users/:id/avatar` | POST | 管理员上传指定用户头像（仅 admin） |
