@@ -305,7 +305,7 @@ func handleVideoList(c *gin.Context) {
 		rows.Close()
 	}
 	rows, err := db.Query(
-		`SELECT id, name, path, thumb_path, duration, like_count FROM videos ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT id, name, path, thumb_path, duration, like_count FROM videos ORDER BY id ASC LIMIT ? OFFSET ?`,
 		pageSize, (page-1)*pageSize)
 	if err != nil {
 		respond(c, 1, "查询失败", nil)
