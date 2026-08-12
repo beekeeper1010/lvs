@@ -302,6 +302,7 @@ func handleVideoList(c *gin.Context) {
 				likedIDs[vid] = true
 			}
 		}
+		rows.Err()
 		rows.Close()
 	}
 	rows, err := db.Query(
