@@ -28,6 +28,7 @@ func newEngine() *gin.Engine {
 	api := r.Group("/api")
 	api.GET("/captcha", handleCaptcha)
 	api.POST("/login", handleLogin)
+	api.GET("/video/play", handleVideoPlay) // 公开路由：内部用短时播放票据鉴权
 	authed := api.Group("")
 	authed.Use(authMiddleware())
 	authed.POST("/logout", handleLogout)
@@ -36,7 +37,7 @@ func newEngine() *gin.Engine {
 	authed.POST("/user/avatar", handleUserAvatarUpload)
 	authed.GET("/user/avatar", handleUserAvatarGet)
 	authed.GET("/video/list", handleVideoList)
-	authed.GET("/video/play", handleVideoPlay)
+	authed.POST("/video/ticket", handleVideoTicket)
 	authed.GET("/video/thumb", handleVideoThumb)
 	authed.GET("/video/adjacent", handleVideoAdjacent)
 	authed.PUT("/video/:id/like", handleVideoLike)

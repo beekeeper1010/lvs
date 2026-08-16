@@ -1,5 +1,5 @@
 <template>
-  <div class="gallery-page">
+  <div class="gallery-page" @contextmenu.prevent>
     <header class="topbar">
       <Brand />
       <div class="actions">

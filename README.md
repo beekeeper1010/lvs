@@ -12,6 +12,7 @@
 - 视频广场卡片式展示：文件名 + 播放时长 + 点赞数，分页浏览，可切换每页条数（20/50/100）
 - 视频点赞：每个用户仅一次，可点赞/取消，计数实时更新
 - 基于 H5 `<video>` 标签播放，支持 Range 分片下载（拖拽进度、跳播流畅）
+- **防下载**：播放改用短时票据（绑定用户/视频/IP）+ 强制 Range + 单次限 4MB，列表不暴露磁盘路径，页面禁用右键与 video 下载按钮；拖动进度条正常
 - 影院风格沉浸式播放页面，支持上一集/下一集切换
 - 前端产物嵌入二进制，单文件即可部署运行
 
@@ -78,7 +79,8 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 | `/api/user/profile` | PUT | 修改当前用户昵称/密码（改密码需 `old_password` 校验） |
 | `/api/user/avatar` | POST/GET | 上传/获取当前用户头像 |
 | `/api/video/list?page=1&pageSize=20` | GET | 分页获取视频列表，返回 `{list, total, page, pageSize}`；列表项含 `duration`（秒）、`like_count`、`liked`（当前用户是否已赞） |
-| `/api/video/play?id=1&token=xxx` | GET | 播放视频流，支持 Range 分片（token 走 query 参数，因 `<video>` 标签无法携带 header） |
+| `/api/video/ticket` | POST | 获取短时播放票据（登录后），返回 `{ticket}`（绑定用户/视频/IP，10 分钟有效） |
+| `/api/video/play?id=1&ticket=xxx` | GET | 播放视频流；必须携带短时票据与 `Range` 头，单次响应限 4MB，支持任意位置拖动播放 |
 | `/api/video/thumb?id=1&token=xxx` | GET | 获取视频缩略图 |
 | `/api/video/adjacent?id=1` | GET | 获取视频的前一个/后一个（播放页切换用） |
 | `/api/video/:id/like` | PUT | 点赞/取消点赞，请求 `{liked: true/false}`，返回 `{like_count, liked}` |
@@ -114,6 +116,7 @@ lvs/
 ├── auth.go           JWT 生成解析与认证中间件
 ├── captcha.go        登录图形验证码生成与校验
 ├── handler.go        HTTP 接口
+├── ticket.go         播放短时票据签发/校验 + 滴水式会话
 ├── scan.go           MP4 递归扫描 + ffmpeg 缩略图/时长探测
 ├── server.go         Gin 路由 + 前端产物嵌入
 └── web/              Vue3 前端工程（构建产物 web/dist 被嵌入）

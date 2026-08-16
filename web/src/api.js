@@ -69,6 +69,7 @@ export const fetchVideos = (page, pageSize) =>
   api.get('/video/list', { params: { page, pageSize } })
 export const fetchAdjacent = (id) =>
   api.get('/video/adjacent', { params: { id } })
+export const fetchPlayTicket = (id) => api.post('/video/ticket', { id })
 export const deleteVideo = (id) => api.delete(`/video/${id}`)
 export const likeVideo = (id, liked) => api.put(`/video/${id}/like`, { liked })
 

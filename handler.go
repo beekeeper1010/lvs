@@ -356,7 +356,6 @@ func handleAdminUserLock(c *gin.Context) {
 type videoItem struct {
 	ID        int64   `json:"id"`
 	Name      string  `json:"name"`
-	Path      string  `json:"path"`
 	ThumbPath string  `json:"thumb_path"`
 	Duration  float64 `json:"duration"`
 	LikeCount int64   `json:"like_count"`
@@ -394,7 +393,7 @@ func handleVideoList(c *gin.Context) {
 		rows.Close()
 	}
 	rows, err := db.Query(
-		`SELECT id, name, path, thumb_path, duration, like_count FROM videos ORDER BY id ASC LIMIT ? OFFSET ?`,
+		`SELECT id, name, thumb_path, duration, like_count FROM videos ORDER BY id ASC LIMIT ? OFFSET ?`,
 		pageSize, (page-1)*pageSize)
 	if err != nil {
 		respond(c, 1, "查询失败", nil)
@@ -404,7 +403,7 @@ func handleVideoList(c *gin.Context) {
 	list := make([]videoItem, 0, pageSize)
 	for rows.Next() {
 		var v videoItem
-		if err := rows.Scan(&v.ID, &v.Name, &v.Path, &v.ThumbPath, &v.Duration, &v.LikeCount); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.ThumbPath, &v.Duration, &v.LikeCount); err != nil {
 			continue
 		}
 		v.Liked = likedIDs[v.ID]
@@ -417,11 +416,104 @@ func handleVideoList(c *gin.Context) {
 	respond(c, 0, "ok", gin.H{"list": list, "total": total, "page": page, "pageSize": pageSize})
 }
 
-// handleVideoPlay 基于 http.ServeContent 支持 Range 分片下载播放
+// handleVideoTicket 为播放签发短时票据（需登录），绑定用户/视频/客户端 IP
+func handleVideoTicket(c *gin.Context) {
+	var req struct {
+		ID int64 `json:"id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ID <= 0 {
+		respond(c, 1, "无效的视频ID", nil)
+		return
+	}
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM videos WHERE id = ?`, req.ID).Scan(&exists); err != nil || exists == 0 {
+		respond(c, 1, "视频不存在", nil)
+		return
+	}
+	claims := c.MustGet("claims").(*Claims)
+	ticket, err := generatePlayTicket(claims.UserID, req.ID, c.ClientIP())
+	if err != nil {
+		respond(c, 1, "签发播放凭证失败", nil)
+		return
+	}
+	respond(c, 0, "ok", gin.H{"ticket": ticket})
+}
+
+// parseSingleRange 解析形如 "bytes=start-end" 的单个 Range，返回实际 [start, end]（闭区间）。
+// 不支持多段 Range；后缀范围 "bytes=-N" 返回最后 N 字节。
+func parseSingleRange(hdr string, size int64) (int64, int64, bool) {
+	hdr = strings.TrimPrefix(hdr, "bytes=")
+	if hdr == "" || strings.Contains(hdr, ",") {
+		return 0, 0, false
+	}
+	parts := strings.SplitN(hdr, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	startStr := strings.TrimSpace(parts[0])
+	endStr := strings.TrimSpace(parts[1])
+	var (
+		start, end int64
+		err        error
+	)
+	switch {
+	case startStr == "" && endStr == "":
+		return 0, 0, false
+	case startStr == "":
+		n, err := strconv.ParseInt(endStr, 10, 64)
+		if err != nil || n <= 0 {
+			return 0, 0, false
+		}
+		if n > size {
+			n = size
+		}
+		return size - n, size - 1, true
+	case endStr == "":
+		start, err = strconv.ParseInt(startStr, 10, 64)
+		if err != nil || start < 0 || start >= size {
+			return 0, 0, false
+		}
+		return start, size - 1, true
+	default:
+		start, err = strconv.ParseInt(startStr, 10, 64)
+		if err != nil {
+			return 0, 0, false
+		}
+		end, err = strconv.ParseInt(endStr, 10, 64)
+		if err != nil {
+			return 0, 0, false
+		}
+		if start < 0 || end < start || start >= size {
+			return 0, 0, false
+		}
+		if end >= size {
+			end = size - 1
+		}
+		return start, end, true
+	}
+}
+
+// handleVideoPlay 基于短时票据 + Range 分片流式播放。
+// 防下载措施：必须携带票据（绑定用户/视频/IP、短时有效）；必须携带 Range（拒绝整文件）；
+// 单次响应限制大小（滴水式）；按会话校验拉取顺序（大跨度跳转需换新票据）。
 func handleVideoPlay(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Query("id"), 10, 64)
 	if id <= 0 {
 		respond(c, 1, "无效的视频ID", nil)
+		return
+	}
+	ticket := c.Query("ticket")
+	if ticket == "" {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 1, "msg": "缺少播放凭证", "data": nil})
+		return
+	}
+	claims, err := parsePlayTicket(ticket)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 1, "msg": "播放凭证无效或已过期", "data": nil})
+		return
+	}
+	if claims.VideoID != id || claims.IP != c.ClientIP() {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 1, "msg": "播放凭证不匹配", "data": nil})
 		return
 	}
 	var path string
@@ -440,6 +532,27 @@ func handleVideoPlay(c *gin.Context) {
 		respond(c, 1, "读取视频失败", nil)
 		return
 	}
+
+	// HEAD 仅返回元信息，不涉及内容下载
+	if c.Request.Method == http.MethodHead {
+		http.ServeContent(c.Writer, c.Request, filepath.Base(path), st.ModTime(), f)
+		return
+	}
+
+	// 必须携带 Range，禁止整文件拉取
+	rangeHdr := c.Request.Header.Get("Range")
+	if rangeHdr == "" {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 1, "msg": "不支持整文件下载", "data": nil})
+		return
+	}
+	start, end, ok := parseSingleRange(rangeHdr, st.Size())
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusRequestedRangeNotSatisfiable, gin.H{"code": 1, "msg": "无效的 Range", "data": nil})
+		return
+	}
+	// 单次响应限制大小（滴水式）：允许任意位置拉取，但单次最多 playStepBytes
+	servedEnd := min(end, start+int64(playStepBytes)-1)
+	c.Request.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, servedEnd))
 	http.ServeContent(c.Writer, c.Request, filepath.Base(path), st.ModTime(), f)
 }
 
