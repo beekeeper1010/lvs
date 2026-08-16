@@ -30,14 +30,52 @@
           size="large"
           :prefix-icon="Lock"
           show-password
-          @keyup.enter="onLogin"
         />
       </el-form-item>
+      <el-form-item>
+        <div class="captcha-row">
+          <el-input
+            v-model.trim="captchaCode"
+            placeholder="验证码"
+            size="large"
+            clearable
+          />
+          <img
+            v-if="captchaImage"
+            class="captcha-img"
+            :src="captchaImage"
+            alt="验证码"
+            title="看不清？点击刷新"
+            @click="loadCaptcha"
+          />
+          <span v-else class="captcha-img captcha-loading" @click="loadCaptcha"
+            >加载中…</span
+          >
+        </div>
+      </el-form-item>
 
-      <el-alert v-if="notice" :title="notice" type="success" :closable="false" class="tip" />
-      <el-alert v-if="error" :title="error" type="error" :closable="false" class="tip" />
+      <el-alert
+        v-if="notice"
+        :title="notice"
+        type="success"
+        :closable="false"
+        class="tip"
+      />
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        :closable="false"
+        class="tip"
+      />
 
-      <el-button class="submit" type="primary" size="large" native-type="submit" :loading="loading">
+      <el-button
+        class="submit"
+        type="primary"
+        size="large"
+        native-type="submit"
+        :loading="loading"
+      >
         登 录
       </el-button>
     </el-form>
@@ -45,10 +83,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
-import { login } from '../api'
+import { login, fetchCaptcha } from '../api'
 import { useUserStore } from '../stores/user'
 import PlayIcon from '../components/PlayIcon.vue'
 
@@ -57,27 +95,54 @@ const route = useRoute()
 const userStore = useUserStore()
 const username = ref('')
 const password = ref('')
+const captchaId = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
 const loading = ref(false)
 const error = ref('')
 const notice = ref(route.query.msg || '')
 
+async function loadCaptcha() {
+  captchaCode.value = ''
+  try {
+    const data = await fetchCaptcha()
+    captchaId.value = data.captcha_id
+    captchaImage.value = data.captcha_image
+  } catch (e) {
+    captchaImage.value = ''
+  }
+}
+
 async function onLogin() {
+  if (loading.value) return // 防止重复提交
   if (!username.value || !password.value) {
     error.value = '请输入用户名和密码'
+    return
+  }
+  if (!captchaId.value || !captchaCode.value) {
+    error.value = '请输入验证码'
     return
   }
   loading.value = true
   error.value = ''
   try {
-    const data = await login(username.value, password.value)
+    const data = await login(
+      username.value,
+      password.value,
+      captchaId.value,
+      captchaCode.value,
+    )
     userStore.setLogin(data)
     router.push('/gallery')
   } catch (e) {
     error.value = e.message || '登录失败'
+    loadCaptcha() // 验证码一次性，失败后刷新
   } finally {
     loading.value = false
   }
 }
+
+onMounted(loadCaptcha)
 </script>
 
 <style scoped>
@@ -129,11 +194,20 @@ async function onLogin() {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 45%, #000 30%, transparent 75%);
-  mask-image: radial-gradient(ellipse 60% 55% at 50% 45%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(
+    ellipse 60% 55% at 50% 45%,
+    #000 30%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    ellipse 60% 55% at 50% 45%,
+    #000 30%,
+    transparent 75%
+  );
 }
 
 .login-card {
@@ -147,7 +221,9 @@ async function onLogin() {
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 22px;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   animation: fadeUp 0.5s ease both;
 }
 .login-card :deep(.el-form-item) {
@@ -158,7 +234,9 @@ async function onLogin() {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 }
 .login-card :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 4px rgba(124, 92, 255, 0.16);
+  box-shadow:
+    0 0 0 1px var(--el-color-primary) inset,
+    0 0 0 4px rgba(124, 92, 255, 0.16);
 }
 
 .brand {
@@ -199,6 +277,41 @@ async function onLogin() {
   border-radius: 8px;
 }
 
+.captcha-row {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.captcha-row :deep(.el-input) {
+  flex: 1;
+}
+.captcha-img {
+  flex-shrink: 0;
+  width: 104px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  object-fit: cover;
+  /* 数字为随机深色且图片背景透明，浅色底保证始终高对比 */
+  background: #f6f7f9;
+  transition:
+    opacity 0.15s,
+    border-color 0.2s;
+}
+.captcha-img:hover {
+  border-color: var(--el-color-primary);
+  opacity: 0.9;
+}
+.captcha-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .submit {
   width: 100%;
   height: 48px;
@@ -208,7 +321,9 @@ async function onLogin() {
   text-indent: 4px;
   border: none;
   box-shadow: 0 10px 28px rgba(124, 92, 255, 0.35);
-  transition: transform 0.15s, box-shadow 0.2s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.2s;
 }
 .submit:hover {
   transform: translateY(-2px);

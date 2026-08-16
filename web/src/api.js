@@ -26,10 +26,17 @@ api.interceptors.response.use(
       if (location.pathname !== '/login') location.href = '/login'
     }
     return Promise.reject(err)
-  }
+  },
 )
 
-export const login = (username, password) => api.post('/login', { username, password })
+export const login = (username, password, captchaId, captchaCode) =>
+  api.post('/login', {
+    username,
+    password,
+    captcha_id: captchaId,
+    captcha_code: captchaCode,
+  })
+export const fetchCaptcha = () => api.get('/captcha')
 export const logout = () => api.post('/logout')
 export const fetchUserInfo = () => api.get('/user/info')
 export const updateProfile = (data) => api.put('/user/profile', data)
@@ -58,8 +65,10 @@ export const avatarUrl = (username) => {
   const token = localStorage.getItem('token')
   return `/api/user/avatar?username=${encodeURIComponent(username)}&token=${token}&v=${avatarVersion}`
 }
-export const fetchVideos = (page, pageSize) => api.get('/video/list', { params: { page, pageSize } })
-export const fetchAdjacent = (id) => api.get('/video/adjacent', { params: { id } })
+export const fetchVideos = (page, pageSize) =>
+  api.get('/video/list', { params: { page, pageSize } })
+export const fetchAdjacent = (id) =>
+  api.get('/video/adjacent', { params: { id } })
 export const deleteVideo = (id) => api.delete(`/video/${id}`)
 export const likeVideo = (id, liked) => api.put(`/video/${id}/like`, { liked })
 
@@ -68,3 +77,5 @@ export const fetchUsers = () => api.get('/admin/users')
 export const createUser = (data) => api.post('/admin/users', data)
 export const updateUser = (id, data) => api.put(`/admin/users/${id}`, data)
 export const deleteUser = (id) => api.delete(`/admin/users/${id}`)
+export const lockUser = (id, locked) =>
+  api.put(`/admin/users/${id}/lock`, { locked })

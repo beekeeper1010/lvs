@@ -19,17 +19,14 @@ import (
 //go:embed all:web/dist
 var webFS embed.FS
 
-func startServer(port int, dbPath string) {
-	if err := openDB(dbPath); err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
+// newEngine 构建 gin 引擎并注册全部路由（独立出来便于测试复用）
+func newEngine() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
 	api := r.Group("/api")
+	api.GET("/captcha", handleCaptcha)
 	api.POST("/login", handleLogin)
 	authed := api.Group("")
 	authed.Use(authMiddleware())
@@ -53,6 +50,7 @@ func startServer(port int, dbPath string) {
 	admin.DELETE("/admin/users/:id", handleAdminUserDelete)
 	admin.DELETE("/video/:id", handleVideoDelete)
 	admin.POST("/admin/users/:id/avatar", handleAdminUserAvatarUpload)
+	admin.PUT("/admin/users/:id/lock", handleAdminUserLock)
 
 	// 嵌入的前端静态资源与 SPA fallback
 	if sub, err := fs.Sub(webFS, "web/dist"); err == nil {
@@ -74,6 +72,17 @@ func startServer(port int, dbPath string) {
 			c.Data(http.StatusOK, "text/html; charset=utf-8", index)
 		})
 	}
+
+	return r
+}
+
+func startServer(port int, dbPath string) {
+	if err := openDB(dbPath); err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	r := newEngine()
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),

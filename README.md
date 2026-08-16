@@ -6,7 +6,8 @@
 
 ## 功能特性
 
-- 内置账号登录（JWT 认证），支持用户管理（admin 专属）与用户设置（改昵称/密码/头像）
+- 内置账号登录（JWT 认证 + 图形验证码），支持用户管理（admin 专属）与用户设置（改昵称/密码/头像）
+- **账户安全**：连续 5 次输错密码自动锁定，仅管理员可锁定/解锁；密码错误提示剩余次数；区分"用户名不存在"与"密码错误"
 - 递归扫描本地目录的 MP4 文件，用 ffmpeg 自动提取缩略图并记录播放时长
 - 视频广场卡片式展示：文件名 + 播放时长 + 点赞数，分页浏览，可切换每页条数（20/50/100）
 - 视频点赞：每个用户仅一次，可点赞/取消，计数实时更新
@@ -70,7 +71,8 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 
 | 接口 | 方法 | 说明 |
 | ---- | ---- | ---- |
-| `/api/login` | POST | 登录，请求体 `{username, password}`，返回 JWT token |
+| `/api/captcha` | GET | 获取登录图形验证码，返回 `{captcha_id, captcha_image}`（一次性，校验后失效） |
+| `/api/login` | POST | 登录，请求体 `{username, password, captcha_id, captcha_code}`；验证码错误提示"验证码错误"；用户名不存在提示"用户名不存在"；密码错误提示"密码错误，还有 X 次机会"；连续 5 次错误锁定账户，锁定后需管理员解锁；成功返回 JWT token |
 | `/api/logout` | POST | 注销（前端删除本地 token） |
 | `/api/user/info` | GET | 获取当前登录用户信息（昵称/角色/头像） |
 | `/api/user/profile` | PUT | 修改当前用户昵称/密码（改密码需 `old_password` 校验） |
@@ -82,6 +84,7 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 | `/api/video/:id/like` | PUT | 点赞/取消点赞，请求 `{liked: true/false}`，返回 `{like_count, liked}` |
 | `/api/admin/users` | GET/POST | 用户列表/新增用户（仅 admin） |
 | `/api/admin/users/:id` | PUT/DELETE | 编辑/删除用户（仅 admin） |
+| `/api/admin/users/:id/lock` | PUT | 锁定/解锁用户，请求 `{locked: true/false}`；admin 账号不可锁定（仅 admin） |
 | `/api/admin/users/:id/avatar` | POST | 管理员上传指定用户头像（仅 admin） |
 | `/api/video/:id` | DELETE | 删除视频库记录与缩略图，不删除源文件（仅 admin） |
 
@@ -109,6 +112,7 @@ lvs/
 ├── cmd.go            cobra 子命令（init/scan/serve/resetpwd）与参数解析
 ├── database.go       SQLite 建表、账号、JWT secret
 ├── auth.go           JWT 生成解析与认证中间件
+├── captcha.go        登录图形验证码生成与校验
 ├── handler.go        HTTP 接口
 ├── scan.go           MP4 递归扫描 + ffmpeg 缩略图/时长探测
 ├── server.go         Gin 路由 + 前端产物嵌入

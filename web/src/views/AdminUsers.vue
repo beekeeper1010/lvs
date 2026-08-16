@@ -10,7 +10,9 @@
         <h1>用户管理</h1>
         <p>管理登录账号，管理员账号不可删除</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+      <el-button type="primary" :icon="Plus" @click="openCreate"
+        >新增用户</el-button
+      >
     </section>
 
     <div v-loading="loading" class="table-wrap" element-loading-text="加载中…">
@@ -18,7 +20,10 @@
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column label="头像" width="80">
           <template #default="{ row }">
-            <el-avatar :size="32" :src="row.avatar ? avatarUrl(row.username) : ''">
+            <el-avatar
+              :size="32"
+              :src="row.avatar ? avatarUrl(row.username) : ''"
+            >
               {{ (row.nickname || row.username).charAt(0).toUpperCase() }}
             </el-avatar>
           </template>
@@ -29,15 +34,35 @@
         </el-table-column>
         <el-table-column label="角色" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'admin' ? 'primary' : 'info'" effect="dark">
+            <el-tag
+              :type="row.role === 'admin' ? 'primary' : 'info'"
+              effect="dark"
+            >
               {{ row.role === 'admin' ? '管理员' : '普通用户' }}
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="row.locked" type="danger" effect="dark"
+              >已锁定</el-tag
+            >
+            <el-tag v-else type="success" effect="plain">正常</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="250">
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
+            <el-button
+              size="small"
+              :type="row.locked ? 'success' : 'warning'"
+              plain
+              :disabled="row.role === 'admin'"
+              @click="onToggleLock(row)"
+            >
+              {{ row.locked ? '解锁' : '锁定' }}
+            </el-button>
             <el-button
               size="small"
               type="danger"
@@ -69,13 +94,23 @@
             :http-request="onPickAvatar"
           >
             <el-avatar :size="72" :src="dialogAvatarSrc">
-              {{ (editing?.nickname || editing?.username || '?').charAt(0).toUpperCase() }}
+              {{
+                (editing?.nickname || editing?.username || '?')
+                  .charAt(0)
+                  .toUpperCase()
+              }}
             </el-avatar>
-            <div class="upload-tip">{{ editing ? '点击更换头像' : '点击选择头像' }}</div>
+            <div class="upload-tip">
+              {{ editing ? '点击更换头像' : '点击选择头像' }}
+            </div>
           </el-upload>
         </el-form-item>
         <el-form-item label="用户名">
-          <el-input v-model.trim="form.username" :disabled="!!editing" placeholder="登录用户名" />
+          <el-input
+            v-model.trim="form.username"
+            :disabled="!!editing"
+            placeholder="登录用户名"
+          />
         </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model.trim="form.nickname" placeholder="显示昵称" />
@@ -91,7 +126,9 @@
       </el-form>
       <template #footer>
         <el-button @click="showModal = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="onSave"
+          >保存</el-button
+        >
       </template>
     </el-dialog>
   </div>
@@ -101,7 +138,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { fetchUsers, createUser, updateUser, deleteUser, uploadUserAvatar, avatarUrl } from '../api'
+import {
+  fetchUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  uploadUserAvatar,
+  lockUser,
+  avatarUrl,
+} from '../api'
 import Brand from '../components/Brand.vue'
 
 const users = ref([])
@@ -205,6 +250,31 @@ async function onDelete(u) {
     load()
   } catch (e) {
     ElMessage.error(e.message || '删除失败')
+  }
+}
+
+// 锁定/解锁用户（仅管理员操作）
+async function onToggleLock(u) {
+  const action = u.locked ? '解锁' : '锁定'
+  try {
+    await ElMessageBox.confirm(
+      `确定${action}用户 "${u.username}" 吗？`,
+      '提示',
+      {
+        confirmButtonText: action,
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch (e) {
+    return // 取消
+  }
+  try {
+    await lockUser(u.id, !u.locked)
+    ElMessage.success(`用户已${action}`)
+    load()
+  } catch (e) {
+    ElMessage.error(e.message || `${action}失败`)
   }
 }
 

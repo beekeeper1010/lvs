@@ -76,6 +76,8 @@ func createTables(d *sql.DB) error {
 			role TEXT NOT NULL DEFAULT 'user',
 			pwd_ver INTEGER NOT NULL DEFAULT 0,
 			avatar TEXT NOT NULL DEFAULT '',
+			login_fail_count INTEGER NOT NULL DEFAULT 0,
+			locked INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS videos (
@@ -148,28 +150,34 @@ func updateUser(id int64, nickname, password string) error {
 	return err
 }
 
-// resetUserPassword 重置指定用户的密码，改密使旧 token 失效
+// resetUserPassword 重置指定用户的密码，改密使旧 token 失效；同时解锁账户、清零失败次数
 func resetUserPassword(username, newPassword string) error {
 	var id int64
 	if err := db.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&id); err != nil {
 		return fmt.Errorf("用户 %q 不存在", username)
 	}
-	return updateUser(id, "", newPassword)
+	if err := updateUser(id, "", newPassword); err != nil {
+		return err
+	}
+	_, err := db.Exec(`UPDATE users SET locked = 0, login_fail_count = 0 WHERE id = ?`, id)
+	return err
 }
 
 // userInfo 用户列表项
 type userInfo struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	Nickname  string `json:"nickname"`
-	Role      string `json:"role"`
-	Avatar    string `json:"avatar"`
-	CreatedAt string `json:"created_at"`
+	ID             int64  `json:"id"`
+	Username       string `json:"username"`
+	Nickname       string `json:"nickname"`
+	Role           string `json:"role"`
+	Avatar         string `json:"avatar"`
+	CreatedAt      string `json:"created_at"`
+	Locked         bool   `json:"locked"`
+	LoginFailCount int    `json:"login_fail_count"`
 }
 
 // listUsers 查询全部用户
 func listUsers() ([]userInfo, error) {
-	rows, err := db.Query(`SELECT id, username, nickname, role, avatar, created_at FROM users ORDER BY id`)
+	rows, err := db.Query(`SELECT id, username, nickname, role, avatar, created_at, locked, login_fail_count FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -178,9 +186,11 @@ func listUsers() ([]userInfo, error) {
 	for rows.Next() {
 		var u userInfo
 		var created time.Time
-		if err := rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Role, &u.Avatar, &created); err != nil {
+		var locked int
+		if err := rows.Scan(&u.ID, &u.Username, &u.Nickname, &u.Role, &u.Avatar, &created, &locked, &u.LoginFailCount); err != nil {
 			return nil, err
 		}
+		u.Locked = locked == 1
 		u.CreatedAt = created.Format("2006-01-02 15:04:05")
 		list = append(list, u)
 	}

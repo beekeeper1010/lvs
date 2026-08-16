@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,27 +19,77 @@ func respond(c *gin.Context, code int, msg string, data any) {
 	c.JSON(http.StatusOK, gin.H{"code": code, "msg": msg, "data": data})
 }
 
+// boolInt 布尔转 0/1，用于 SQLite 布尔字段
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// maxLoginFails 连续输错密码锁定阈值
+const maxLoginFails = 5
+
 func handleLogin(c *gin.Context) {
 	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+		CaptchaID   string `json:"captcha_id"`
+		CaptchaCode string `json:"captcha_code"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.Username == "" || req.Password == "" {
-		respond(c, 1, "用户名或密码不能为空", nil)
+		respond(c, 1, "用户名和密码不能为空", nil)
+		return
+	}
+	// 验证码校验（一次性，校验后即失效）
+	if !verifyCaptcha(req.CaptchaID, req.CaptchaCode) {
+		respond(c, 1, "验证码错误", nil)
 		return
 	}
 	var (
-		id       int64
-		hash     string
-		nickname string
-		role     string
-		avatar   string
-		pwdVer   int64
+		id             int64
+		hash           string
+		nickname       string
+		role           string
+		avatar         string
+		pwdVer         int64
+		locked         int
+		loginFailCount int
 	)
-	err := db.QueryRow(`SELECT id, password, nickname, role, avatar, pwd_ver FROM users WHERE username = ?`, req.Username).
-		Scan(&id, &hash, &nickname, &role, &avatar, &pwdVer)
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
-		respond(c, 1, "用户名或密码错误", nil)
+	err := db.QueryRow(`SELECT id, password, nickname, role, avatar, pwd_ver, locked, login_fail_count FROM users WHERE username = ?`, req.Username).
+		Scan(&id, &hash, &nickname, &role, &avatar, &pwdVer, &locked, &loginFailCount)
+	if err != nil {
+		// 区分"用户名不存在"与"密码错误"
+		respond(c, 1, "用户名不存在", nil)
+		return
+	}
+	// 锁定账户：即使密码正确也拒绝登录，需管理员解锁
+	if locked == 1 {
+		respond(c, 1, "账户已锁定，请联系管理员", gin.H{"locked": true})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
+		newCount := loginFailCount + 1
+		if newCount >= maxLoginFails {
+			// 连续输错达到上限，锁定账户
+			if _, err := db.Exec(`UPDATE users SET login_fail_count = ?, locked = 1 WHERE id = ?`, newCount, id); err != nil {
+				respond(c, 1, "登录失败", nil)
+				return
+			}
+			respond(c, 1, "密码错误次数过多，账户已锁定，请联系管理员", gin.H{"locked": true, "remaining": 0})
+			return
+		}
+		if _, err := db.Exec(`UPDATE users SET login_fail_count = ? WHERE id = ?`, newCount, id); err != nil {
+			respond(c, 1, "登录失败", nil)
+			return
+		}
+		remaining := maxLoginFails - newCount
+		respond(c, 1, fmt.Sprintf("密码错误，还有 %d 次机会", remaining), gin.H{"remaining": remaining})
+		return
+	}
+	// 登录成功：清零连续失败次数
+	if _, err := db.Exec(`UPDATE users SET login_fail_count = 0 WHERE id = ?`, id); err != nil {
+		respond(c, 1, "登录失败", nil)
 		return
 	}
 	if nickname == "" {
@@ -261,6 +312,43 @@ func handleAdminUserDelete(c *gin.Context) {
 	if err := deleteUserByID(id); err != nil {
 		respond(c, 1, err.Error(), nil)
 		return
+	}
+	respond(c, 0, "ok", nil)
+}
+
+// handleAdminUserLock 管理员锁定/解锁用户（仅 admin）。锁定 admin 账号被禁止
+func handleAdminUserLock(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		respond(c, 1, "无效的用户ID", nil)
+		return
+	}
+	var req struct {
+		Locked bool `json:"locked"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respond(c, 1, "请求参数错误", nil)
+		return
+	}
+	var role string
+	if err := db.QueryRow(`SELECT role FROM users WHERE id = ?`, id).Scan(&role); err != nil {
+		respond(c, 1, "用户不存在", nil)
+		return
+	}
+	if req.Locked && role == "admin" {
+		respond(c, 1, "管理员账号不可锁定", nil)
+		return
+	}
+	if _, err := db.Exec(`UPDATE users SET locked = ? WHERE id = ?`, boolInt(req.Locked), id); err != nil {
+		respond(c, 1, "操作失败", nil)
+		return
+	}
+	// 解锁时清零连续失败次数
+	if !req.Locked {
+		if _, err := db.Exec(`UPDATE users SET login_fail_count = 0 WHERE id = ?`, id); err != nil {
+			respond(c, 1, "操作失败", nil)
+			return
+		}
 	}
 	respond(c, 0, "ok", nil)
 }
