@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,8 +75,29 @@ func startServer(port int, dbPath string) {
 		})
 	}
 
-	log.Printf("lvs 服务已启动: http://localhost:%d", port)
-	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	go func() {
+		log.Printf("lvs 服务已启动: http://localhost:%d", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("服务启动失败: %v", err)
+		}
+	}()
+
+	// 等待退出信号（Ctrl+C / kill），优雅关闭
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	log.Println("收到退出信号, 正在优雅关闭服务...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("服务关闭异常: %v", err)
+	}
+	log.Println("lvs 服务已退出")
 }

@@ -45,11 +45,15 @@ go build -o lvs        # Windows 下为 go build -o lvs.exe
 ```bash
 # 初始化：创建数据库并内置 admin 管理员账号（密码由 -p 指定）
 ./lvs init -p 123456
-# 可选参数：-d <路径> 指定数据库文件位置（默认 ./lvs.db）
+# 可选参数：-D <路径> 指定数据库文件位置（默认 ./lvs.db）
 
 # 扫描视频：递归扫描目录及子目录的 mp4，提取缩略图、记录播放时长并入库
-./lvs scan -D /path/to/videos
-# 可选参数：-d <路径>、-t <缩略图目录>（默认 data/thumbs）
+./lvs scan -d /path/to/videos
+# 可选参数：-D <路径>、-t <缩略图目录>（默认 data/thumbs）
+
+# 重置用户密码（改密后该用户旧 token 立即失效，需重新登录）
+./lvs resetpwd -u <用户名> -p <新密码>
+# 可选参数：-D <路径>
 
 # 启动服务
 ./lvs            # 等价于 ./lvs serve
@@ -102,7 +106,7 @@ cd web && npm run dev
 ```text
 lvs/
 ├── main.go           CLI 入口
-├── cmd.go            cobra 子命令（init/scan/serve）与参数解析
+├── cmd.go            cobra 子命令（init/scan/serve/resetpwd）与参数解析
 ├── database.go       SQLite 建表、账号、JWT secret
 ├── auth.go           JWT 生成解析与认证中间件
 ├── handler.go        HTTP 接口

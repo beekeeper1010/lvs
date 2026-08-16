@@ -148,6 +148,15 @@ func updateUser(id int64, nickname, password string) error {
 	return err
 }
 
+// resetUserPassword 重置指定用户的密码，改密使旧 token 失效
+func resetUserPassword(username, newPassword string) error {
+	var id int64
+	if err := db.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&id); err != nil {
+		return fmt.Errorf("用户 %q 不存在", username)
+	}
+	return updateUser(id, "", newPassword)
+}
+
 // userInfo 用户列表项
 type userInfo struct {
 	ID        int64  `json:"id"`
