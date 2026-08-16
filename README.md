@@ -28,7 +28,7 @@
 
 - [Go](https://go.dev/dl/) 1.25+
 - [Node.js](https://nodejs.org/) 18+（仅构建前端时需要）
-- [ffmpeg](https://ffmpeg.org/)（仅 `lvs scan` 提取缩略图时需要，运行服务不需要）
+- [ffmpeg](https://ffmpeg.org/) **8.x**（仅 `lvs scan` 提取缩略图时需要，运行服务不需要）
 
 ## 构建
 
