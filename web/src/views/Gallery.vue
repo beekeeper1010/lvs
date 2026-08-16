@@ -16,11 +16,19 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-if="userStore.isAdmin" command="users" :icon="UserFilled">
+              <el-dropdown-item
+                v-if="userStore.isAdmin"
+                command="users"
+                :icon="UserFilled"
+              >
                 用户管理
               </el-dropdown-item>
-              <el-dropdown-item command="settings" :icon="Setting">用户设置</el-dropdown-item>
-              <el-dropdown-item command="logout" divided :icon="SwitchButton">注销</el-dropdown-item>
+              <el-dropdown-item command="settings" :icon="Setting"
+                >用户设置</el-dropdown-item
+              >
+              <el-dropdown-item command="logout" divided :icon="SwitchButton"
+                >注销</el-dropdown-item
+              >
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -29,7 +37,9 @@
 
     <section class="hero">
       <h1>视频广场</h1>
-      <p>共 <b>{{ total }}</b> 部影片 · 发现你的本地收藏</p>
+      <p>
+        共 <b>{{ total }}</b> 部影片 · 发现你的本地收藏
+      </p>
     </section>
 
     <div v-loading="loading" class="grid" element-loading-text="加载中…">
@@ -75,7 +85,9 @@
             @click.stop="onLike(v)"
           >
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M1 21h4V9H1v12zM23 10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L14.17 1 7.59 7.59A2 2 0 0 0 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+              <path
+                d="M1 21h4V9H1v12zM23 10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L14.17 1 7.59 7.59A2 2 0 0 0 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
+              />
             </svg>
             <span class="like-count">{{ v.like_count }}</span>
           </button>
@@ -105,7 +117,16 @@
           :aria-label="'回到顶部'"
           @click="scrollToTop"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M12 19V5" />
             <path d="m5 12 7-7 7 7" />
           </svg>
@@ -114,7 +135,13 @@
     </Teleport>
 
     <!-- 用户设置弹窗 -->
-    <el-dialog v-model="showSettings" title="用户设置" width="420px" align-center append-to-body>
+    <el-dialog
+      v-model="showSettings"
+      title="用户设置"
+      width="420px"
+      align-center
+      append-to-body
+    >
       <el-form label-position="top">
         <el-form-item label="头像">
           <el-upload
@@ -123,12 +150,17 @@
             accept="image/*"
             :http-request="doUploadAvatar"
           >
-            <el-avatar :size="72" :src="myAvatarSrc">{{ userStore.avatarText }}</el-avatar>
+            <el-avatar :size="72" :src="myAvatarSrc">{{
+              userStore.avatarText
+            }}</el-avatar>
             <div class="upload-tip">点击更换头像</div>
           </el-upload>
         </el-form-item>
         <el-form-item label="昵称">
-          <el-input v-model.trim="settingsForm.nickname" placeholder="显示昵称" />
+          <el-input
+            v-model.trim="settingsForm.nickname"
+            placeholder="显示昵称"
+          />
         </el-form-item>
         <el-form-item label="当前密码">
           <el-input
@@ -157,7 +189,12 @@
       </el-form>
       <template #footer>
         <el-button @click="showSettings = false">取消</el-button>
-        <el-button type="primary" :loading="savingSettings" @click="saveSettings">保存</el-button>
+        <el-button
+          type="primary"
+          :loading="savingSettings"
+          @click="saveSettings"
+          >保存</el-button
+        >
       </template>
     </el-dialog>
   </div>
@@ -167,7 +204,13 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, UserFilled, Setting, SwitchButton, Delete } from '@element-plus/icons-vue'
+import {
+  ArrowDown,
+  UserFilled,
+  Setting,
+  SwitchButton,
+  Delete,
+} from '@element-plus/icons-vue'
 import {
   fetchVideos,
   fetchUserInfo,
@@ -206,7 +249,12 @@ watch(pageSize, (s) => {
 // 用户设置弹窗
 const showSettings = ref(false)
 const savingSettings = ref(false)
-const settingsForm = ref({ nickname: '', oldPassword: '', newPassword: '', confirmPassword: '' })
+const settingsForm = ref({
+  nickname: '',
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
 
 function thumbUrl(v) {
   const token = localStorage.getItem('token')
@@ -359,11 +407,15 @@ async function onLike(v) {
 // 删除视频（仅移除库记录与缩略图，不删除源文件）
 async function onDelete(v) {
   try {
-    await ElMessageBox.confirm(`确定删除视频 "${v.name}" 吗？\n仅移除视频库记录，不会删除源文件。`, '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
+    await ElMessageBox.confirm(
+      `确定删除视频 "${v.name}" 吗？\n仅移除视频库记录，不会删除源文件。`,
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
   } catch (e) {
     return // 取消
   }
@@ -537,17 +589,25 @@ onUnmounted(() => {
   cursor: pointer;
   opacity: 0;
   animation: fadeUp 0.45s ease forwards;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.45),
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.45),
     0 0 26px rgba(124, 92, 255, 0.1);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease,
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
     background 0.25s ease;
 }
 .card:hover {
   transform: translateY(-6px);
   background: var(--surface-hover);
   border-color: rgba(124, 92, 255, 0.4);
-  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.5),
-    0 0 36px rgba(124, 92, 255, 0.22), 0 0 0 1px rgba(124, 92, 255, 0.18);
+  box-shadow:
+    0 22px 52px rgba(0, 0, 0, 0.65),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 36px rgba(124, 92, 255, 0.22),
+    0 0 0 1px rgba(124, 92, 255, 0.18);
 }
 
 .thumb {
@@ -606,7 +666,9 @@ onUnmounted(() => {
   justify-content: center;
   opacity: 0;
   transform: scale(0.8);
-  transition: opacity 0.25s, transform 0.25s;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
   pointer-events: none;
 }
 .play-btn svg {
@@ -695,7 +757,10 @@ onUnmounted(() => {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  transition: color 0.2s, border-color 0.2s, transform 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
 }
 .back-top:hover {
   color: #fff;

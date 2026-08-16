@@ -50,4 +50,3 @@ func parsePlayTicket(ticket string) (*PlayTicketClaims, error) {
 	}
 	return claims, nil
 }
-

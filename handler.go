@@ -27,6 +27,16 @@ func boolInt(b bool) int {
 	return 0
 }
 
+// currentUsername 取当前登录用户名（未登录返回空）
+func currentUsername(c *gin.Context) string {
+	if v, ok := c.Get("claims"); ok {
+		if claims, ok := v.(*Claims); ok {
+			return claims.Username
+		}
+	}
+	return ""
+}
+
 // maxLoginFails 连续输错密码锁定阈值
 const maxLoginFails = 5
 
@@ -43,6 +53,7 @@ func handleLogin(c *gin.Context) {
 	}
 	// 验证码校验（一次性，校验后即失效）
 	if !verifyCaptcha(req.CaptchaID, req.CaptchaCode) {
+		logAction(req.Username, "登录失败: 验证码错误")
 		respond(c, 1, "验证码错误", nil)
 		return
 	}
@@ -60,11 +71,13 @@ func handleLogin(c *gin.Context) {
 		Scan(&id, &hash, &nickname, &role, &avatar, &pwdVer, &locked, &loginFailCount)
 	if err != nil {
 		// 区分"用户名不存在"与"密码错误"
+		logAction(req.Username, "登录失败: 用户名不存在")
 		respond(c, 1, "用户名不存在", nil)
 		return
 	}
 	// 锁定账户：即使密码正确也拒绝登录，需管理员解锁
 	if locked == 1 {
+		logAction(req.Username, "登录失败: 账户已锁定")
 		respond(c, 1, "账户已锁定，请联系管理员", gin.H{"locked": true})
 		return
 	}
@@ -76,6 +89,7 @@ func handleLogin(c *gin.Context) {
 				respond(c, 1, "登录失败", nil)
 				return
 			}
+			logAction(req.Username, "登录失败: 密码错误次数过多，账户已锁定")
 			respond(c, 1, "密码错误次数过多，账户已锁定，请联系管理员", gin.H{"locked": true, "remaining": 0})
 			return
 		}
@@ -84,6 +98,7 @@ func handleLogin(c *gin.Context) {
 			return
 		}
 		remaining := maxLoginFails - newCount
+		logAction(req.Username, fmt.Sprintf("登录失败: 密码错误，还有 %d 次机会", remaining))
 		respond(c, 1, fmt.Sprintf("密码错误，还有 %d 次机会", remaining), gin.H{"remaining": remaining})
 		return
 	}
@@ -100,11 +115,13 @@ func handleLogin(c *gin.Context) {
 		respond(c, 1, "登录失败", nil)
 		return
 	}
+	logAction(req.Username, "登录成功")
 	respond(c, 0, "ok", gin.H{"token": token, "username": req.Username, "nickname": nickname, "role": role, "avatar": avatar})
 }
 
 // handleLogout 由前端删除本地 token，服务端仅返回成功
 func handleLogout(c *gin.Context) {
+	logAction(currentUsername(c), "注销")
 	respond(c, 0, "ok", nil)
 }
 
@@ -139,6 +156,7 @@ func handleUserProfile(c *gin.Context) {
 		respond(c, 1, err.Error(), nil)
 		return
 	}
+	logAction(claims.Username, "修改个人设置")
 	respond(c, 0, "ok", nil)
 }
 
@@ -164,30 +182,30 @@ const avatarDir = "data/avatars"
 
 var avatarExts = []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
-// saveAvatar 保存上传的头像文件并更新用户记录
-func saveAvatar(c *gin.Context, username string) {
+// saveAvatar 保存上传的头像文件并更新用户记录，返回是否成功
+func saveAvatar(c *gin.Context, username string) bool {
 	file, err := c.FormFile("avatar")
 	if err != nil {
 		respond(c, 1, "缺少头像文件", nil)
-		return
+		return false
 	}
 	if file.Size > 2*1024*1024 {
 		respond(c, 1, "头像文件不能超过 2MB", nil)
-		return
+		return false
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if !slices.Contains(avatarExts, ext) {
 		respond(c, 1, "不支持的图片格式", nil)
-		return
+		return false
 	}
 	if err := os.MkdirAll(avatarDir, 0o755); err != nil {
 		respond(c, 1, "创建头像目录失败", nil)
-		return
+		return false
 	}
 	path := filepath.Join(avatarDir, username+ext)
 	if err := c.SaveUploadedFile(file, path); err != nil {
 		respond(c, 1, "保存头像失败", nil)
-		return
+		return false
 	}
 	// 清理同用户旧的其它扩展头像
 	for _, e := range avatarExts {
@@ -197,15 +215,18 @@ func saveAvatar(c *gin.Context, username string) {
 	}
 	if _, err := db.Exec(`UPDATE users SET avatar = ? WHERE username = ?`, path, username); err != nil {
 		respond(c, 1, "更新头像失败", nil)
-		return
+		return false
 	}
 	respond(c, 0, "ok", nil)
+	return true
 }
 
 // handleUserAvatarUpload 上传当前登录用户头像
 func handleUserAvatarUpload(c *gin.Context) {
 	claims := c.MustGet("claims").(*Claims)
-	saveAvatar(c, claims.Username)
+	if saveAvatar(c, claims.Username) {
+		logAction(claims.Username, "上传头像")
+	}
 }
 
 // handleAdminUserAvatarUpload 管理员上传指定用户头像
@@ -216,7 +237,9 @@ func handleAdminUserAvatarUpload(c *gin.Context) {
 		respond(c, 1, "用户不存在", nil)
 		return
 	}
-	saveAvatar(c, username)
+	if saveAvatar(c, username) {
+		logAction(currentUsername(c), "上传头像: "+username)
+	}
 }
 
 // handleUserAvatarGet 返回用户头像图片，无头像返回 204
@@ -279,6 +302,7 @@ func handleAdminUserCreate(c *gin.Context) {
 		respond(c, 1, err.Error(), nil)
 		return
 	}
+	logAction(currentUsername(c), "创建用户: "+req.Username)
 	respond(c, 0, "ok", gin.H{"id": id})
 }
 
@@ -300,6 +324,11 @@ func handleAdminUserUpdate(c *gin.Context) {
 		respond(c, 1, err.Error(), nil)
 		return
 	}
+	var uname string
+	if err := db.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&uname); err != nil {
+		uname = fmt.Sprintf("ID=%d", id)
+	}
+	logAction(currentUsername(c), "编辑用户: "+uname)
 	respond(c, 0, "ok", nil)
 }
 
@@ -309,10 +338,16 @@ func handleAdminUserDelete(c *gin.Context) {
 		respond(c, 1, "无效的用户ID", nil)
 		return
 	}
+	var uname string
+	_ = db.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&uname)
+	if uname == "" {
+		uname = fmt.Sprintf("ID=%d", id)
+	}
 	if err := deleteUserByID(id); err != nil {
 		respond(c, 1, err.Error(), nil)
 		return
 	}
+	logAction(currentUsername(c), "删除用户: "+uname)
 	respond(c, 0, "ok", nil)
 }
 
@@ -350,6 +385,16 @@ func handleAdminUserLock(c *gin.Context) {
 			return
 		}
 	}
+	var uname string
+	_ = db.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&uname)
+	if uname == "" {
+		uname = fmt.Sprintf("ID=%d", id)
+	}
+	action := "锁定"
+	if !req.Locked {
+		action = "解锁"
+	}
+	logAction(currentUsername(c), action+"用户: "+uname)
 	respond(c, 0, "ok", nil)
 }
 
@@ -425,8 +470,8 @@ func handleVideoTicket(c *gin.Context) {
 		respond(c, 1, "无效的视频ID", nil)
 		return
 	}
-	var exists int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM videos WHERE id = ?`, req.ID).Scan(&exists); err != nil || exists == 0 {
+	var vname string
+	if err := db.QueryRow(`SELECT name FROM videos WHERE id = ?`, req.ID).Scan(&vname); err != nil {
 		respond(c, 1, "视频不存在", nil)
 		return
 	}
@@ -436,6 +481,7 @@ func handleVideoTicket(c *gin.Context) {
 		respond(c, 1, "签发播放凭证失败", nil)
 		return
 	}
+	logAction(currentUsername(c), "播放视频: "+vname)
 	respond(c, 0, "ok", gin.H{"ticket": ticket})
 }
 
@@ -563,8 +609,8 @@ func handleVideoDelete(c *gin.Context) {
 		respond(c, 1, "无效的视频ID", nil)
 		return
 	}
-	var thumb string
-	if err := db.QueryRow(`SELECT thumb_path FROM videos WHERE id = ?`, id).Scan(&thumb); err != nil {
+	var thumb, vname string
+	if err := db.QueryRow(`SELECT name, thumb_path FROM videos WHERE id = ?`, id).Scan(&vname, &thumb); err != nil {
 		respond(c, 1, "视频不存在", nil)
 		return
 	}
@@ -576,6 +622,7 @@ func handleVideoDelete(c *gin.Context) {
 	if thumb != "" {
 		_ = os.Remove(thumb)
 	}
+	logAction(currentUsername(c), "删除视频: "+vname)
 	respond(c, 0, "ok", nil)
 }
 
@@ -593,9 +640,9 @@ func handleVideoLike(c *gin.Context) {
 		respond(c, 1, "请求参数错误", nil)
 		return
 	}
-	// 校验视频存在
-	var exists int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM videos WHERE id = ?`, id).Scan(&exists); err != nil || exists == 0 {
+	// 校验视频存在并取名称（用于日志，避免额外查询）
+	var vname string
+	if err := db.QueryRow(`SELECT name FROM videos WHERE id = ?`, id).Scan(&vname); err != nil {
 		respond(c, 1, "视频不存在", nil)
 		return
 	}
@@ -640,6 +687,11 @@ func handleVideoLike(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		respond(c, 1, "操作失败", nil)
 		return
+	}
+	if req.Liked {
+		logAction(claims.Username, "点赞视频: "+vname)
+	} else {
+		logAction(claims.Username, "取消点赞: "+vname)
 	}
 	respond(c, 0, "ok", gin.H{"like_count": count, "liked": req.Liked})
 }

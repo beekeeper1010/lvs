@@ -10,6 +10,7 @@ import (
 var (
 	port      int
 	dbPath    string
+	logPath   string
 	password  string
 	username  string
 	scanDir   string
@@ -20,6 +21,10 @@ var rootCmd = &cobra.Command{
 	Use:   "lvs",
 	Short: "本地视频播放服务",
 	Long:  "基于 gin + jwt + sqlite 的本地视频播放服务，前端产物嵌入单文件部署",
+	// 所有子命令执行前初始化日志文件
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return initLogger(logPath)
+	},
 	// 无子命令时等价于 serve
 	Run: func(cmd *cobra.Command, args []string) {
 		startServer(port, dbPath)
@@ -39,6 +44,7 @@ var initCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		fmt.Printf("初始化完成: 数据库 %s, 管理员账号 \"admin\"\n", dbPath)
+		logAction("system", fmt.Sprintf("初始化数据库: %s", dbPath))
 	},
 }
 
@@ -59,6 +65,7 @@ var scanCmd = &cobra.Command{
 			fmt.Println("scan 失败:", err)
 			os.Exit(1)
 		}
+		logAction("system", fmt.Sprintf("扫描完成: 目录 %s", scanDir))
 	},
 }
 
@@ -92,6 +99,7 @@ var resetPwdCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&port, "port", "P", 8900, "监听端口")
 	rootCmd.PersistentFlags().StringVarP(&dbPath, "db", "D", "lvs.db", "sqlite 数据库文件路径")
+	rootCmd.PersistentFlags().StringVarP(&logPath, "log", "L", "lvs.log", "日志文件路径")
 	initCmd.Flags().StringVarP(&password, "password", "p", "", "管理员密码")
 	scanCmd.Flags().StringVarP(&scanDir, "dir", "d", "", "要扫描的视频目录")
 	scanCmd.Flags().StringVarP(&thumbsDir, "thumbs", "t", "data/thumbs", "缩略图输出目录")

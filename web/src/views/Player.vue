@@ -77,7 +77,7 @@ let forcedUntil = 0 // 播放后强制显示标题的截止时间戳
 // video 标签无法携带 Authorization 头，播放改用短时票据（绑定用户/视频/IP）通过 query 传递
 const videoEl = ref(null)
 const ticket = ref('')
-const playUrl = ref('')
+const playUrl = ref(null)
 let recoverCount = 0
 
 function buildPlayUrl() {
@@ -105,6 +105,7 @@ function onPlaying() {
 
 // 票据过期时：换新票据并续播（服务端允许任意位置拉取，拖动进度条不受影响）
 async function onVideoError() {
+  if (!playUrl.value) return // 尚无真实播放地址（初始未取票阶段），忽略空 src 触发的 error
   if (recoverCount >= 3) return
   recoverCount++
   const resume = videoEl.value ? videoEl.value.currentTime : 0

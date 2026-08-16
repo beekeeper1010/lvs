@@ -92,7 +92,7 @@ func startServer(port int, dbPath string) {
 	}
 
 	go func() {
-		log.Printf("lvs 服务已启动: http://localhost:%d", port)
+		logAction("system", fmt.Sprintf("服务启动: http://localhost:%d", port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务启动失败: %v", err)
 		}
@@ -102,12 +102,12 @@ func startServer(port int, dbPath string) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
-	log.Println("收到退出信号, 正在优雅关闭服务...")
+	logAction("system", "服务正在退出")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("服务关闭异常: %v", err)
 	}
-	log.Println("lvs 服务已退出")
+	logAction("system", "服务已退出")
 }
